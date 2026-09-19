@@ -1,33 +1,28 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static dev.nextftc.extensions.pedro.PedroComponent.follower;
-
 import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.mechanism.ColorSensor;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.ftc.ActiveOpMode;
-import dev.nextftc.hardware.powerable.SetPower;
 
 public class SpinnerAuto implements Subsystem {
 
     private static final SpinnerAuto INSTANCE = new SpinnerAuto();
+
     public static SpinnerAuto getInstance() {
         return INSTANCE;
     }
 
     private final AtomicBoolean isRunnning = new AtomicBoolean(false);
 
+    // TODO will change this name to pickMotor
+    private DcMotor spinnerMotor;
 
-    //TODO will change this name to pickMotor
-    private  DcMotor spinnerMotor;
-
-
-    private ColorSensor colorSensor ;
+    private ColorSensor colorSensor;
 
     private double pow = -0.65;
 
@@ -44,31 +39,29 @@ public class SpinnerAuto implements Subsystem {
 
     @Override
     public void initialize() {
-        spinnerMotor =  ActiveOpMode.hardwareMap().get(DcMotor.class,"spinner");
-     //   this.stopSpinner().schedule();
+        spinnerMotor = ActiveOpMode.hardwareMap().get(DcMotor.class, "spinner");
         setPower(-0.65);
         isRunnning.set(false);
     }
 
-
     @Override
     public void periodic() {
-        if (colorSensor != null ){
+        if (colorSensor != null) {
             controlBasedColor();
         }
     }
 
     /**
-     * Check the Color Sensor and if it detects the Object , then stop the spinner
-     * else start the spinner
+     * Check the Color Sensor and if it detects the Object, stop the spinner;
+     * otherwise start the spinner.
      */
-    private void controlBasedColor(){
+    private void controlBasedColor() {
         if (colorSensor.isDetected()) {
             if (isRunnning.get()) {
                 isRunnning.set(false);
                 spinnerMotor.setPower(0.0);
             }
-        }else{
+        } else {
             if (!isRunnning.get()) {
                 isRunnning.set(true);
                 spinnerMotor.setPower(this.pow);
