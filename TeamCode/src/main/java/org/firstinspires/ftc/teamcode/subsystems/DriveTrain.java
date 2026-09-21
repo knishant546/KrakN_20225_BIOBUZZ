@@ -20,10 +20,10 @@ public class DriveTrain implements Subsystem {
         backRightMotor.setPower(0.8);
     }
 
-    private final MotorEx frontLeftMotor = new MotorEx("frontleft");
-    private final MotorEx frontRightMotor = new MotorEx("frontright").reversed();
-    private final MotorEx backLeftMotor = new MotorEx("backleft");
-    private final MotorEx backRightMotor = new MotorEx("backright").reversed();
+    private final MotorEx frontLeftMotor = new MotorEx("FLDC");
+    private final MotorEx frontRightMotor = new MotorEx("FRDC").reversed();
+    private final MotorEx backLeftMotor = new MotorEx("RLDC");
+    private final MotorEx backRightMotor = new MotorEx("RRDC").reversed();
 
     public DriverControlledCommand startDrive = new MecanumDriverControlled(
             frontLeftMotor,

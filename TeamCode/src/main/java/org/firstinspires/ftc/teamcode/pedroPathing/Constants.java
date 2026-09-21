@@ -11,6 +11,7 @@ import com.pedropathing.revhub.drivetrains.MecanumConfig;
 import com.pedropathing.revhub.localizers.PinpointConfig;
 import com.pedropathing.revhub.localizers.PinpointLocalizer;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
@@ -20,7 +21,7 @@ public class Constants {
 
     /*
      * ============================================================
-     * DRIVETRAIN - Pedro 3 API
+     * DRIVETRAIN - Pedro 3 API++++++++
      * ============================================================
      *
      * These names/directions were carried over from your Pedro 2
@@ -33,10 +34,13 @@ public class Constants {
                 c.frontRightName.set("FRDC");
                 c.backRightName.set("RRDC");
 
-                c.frontLeftDirection.set(DcMotorSimple.Direction.FORWARD);
-                c.backLeftDirection.set(DcMotorSimple.Direction.FORWARD);
+
+
+                c.frontLeftDirection.set(DcMotorSimple.Direction.REVERSE);
+                c.backLeftDirection.set(DcMotorSimple.Direction.REVERSE);
+                c.backRightDirection.set(DcMotorSimple.Direction.FORWARD);
                 c.frontRightDirection.set(DcMotorSimple.Direction.REVERSE);
-                c.backRightDirection.set(DcMotorSimple.Direction.REVERSE);
+
 
                 c.manualBrakeMode.set(true);
             }
@@ -63,8 +67,8 @@ public class Constants {
             c -> {
                 c.name.set("pinpoint");
 
-                c.xPodOffset.set(0.3);
-                c.yPodOffset.set(-5.5);
+                c.xPodOffset.set(0.1);
+                c.yPodOffset.set(6.25);
 
                 c.offsetUnits.set(DistanceUnit.INCH);
                 c.globalDistanceUnit.set(DistanceUnit.INCH);
@@ -74,7 +78,7 @@ public class Constants {
                 );
 
                 c.xPodDirection.set(
-                        GoBildaPinpointDriver.EncoderDirection.FORWARD
+                        GoBildaPinpointDriver.EncoderDirection.REVERSED
                 );
                 c.yPodDirection.set(
                         GoBildaPinpointDriver.EncoderDirection.FORWARD
@@ -186,7 +190,7 @@ public class Constants {
 
                 // Temporary migration speed limit.
                 // Remove/change after AutoTune.
-                c.maxPathSpeed.set(0.25);
+                c.maxPathSpeed.set(0.60);
             }
     );
 

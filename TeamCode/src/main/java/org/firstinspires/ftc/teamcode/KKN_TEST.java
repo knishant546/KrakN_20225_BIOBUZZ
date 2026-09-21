@@ -7,6 +7,8 @@ import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 
 import org.firstinspires.ftc.teamcode.mechanism.MecanumDrive;
 import org.firstinspires.ftc.teamcode.mechanism.ColorSensor;
+import org.firstinspires.ftc.teamcode.mechanism.Intake;
+
 
 
 //@Disabled
@@ -19,6 +21,7 @@ public class KKN_TEST extends OpMode {
      DcMotor rearRightMotor;
      int loopCount = 0;
      MecanumDrive driveTest;
+    Intake intake;
      double forward, strafe, rotate;
    // private NormalizedColorSensor colorSensor;
      NormalizedColorSensor hardwareColorSensor;
@@ -40,12 +43,14 @@ public class KKN_TEST extends OpMode {
 
         driveTest = new MecanumDrive();
         driveTest.init(hardwareMap,false);
-        forward = -gamepad1.left_stick_y; // Forward backward on Y axis
-        strafe = gamepad1.left_stick_x; //sideways
-        rotate = gamepad1.right_stick_x; //rotate
+       // forward = -gamepad1.left_stick_y; // Forward backward on Y axis
+        //strafe = gamepad1.left_stick_x; //sideways
+       // rotate = gamepad1.right_stick_x; //rotate
 
-         hardwareColorSensor = hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
-         colorSensor = new ColorSensor(hardwareColorSensor, telemetry);
+        hardwareColorSensor = hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
+        colorSensor = new ColorSensor(hardwareColorSensor, telemetry);
+       // intake= new Intake();
+        //intake.init(hardwareMap);
 
         }
 /**********************************************************
@@ -82,9 +87,19 @@ public class KKN_TEST extends OpMode {
         driveTest.drive(forward, strafe, rotate);
         telemetry.addData("FL Power", frontLeftMotor.getPower());
         telemetry.addData("FR Power", frontRightMotor.getPower());
-        telemetry.addData("FL Power", rearLeftMotor.getPower());
-        telemetry.addData("FR Power", rearRightMotor.getPower());
+        telemetry.addData("RL Power", rearLeftMotor.getPower());
+        telemetry.addData("RR Power", rearRightMotor.getPower());
         telemetry.addData("Loop Count", loopCount++);
+
+    }
+
+    public void simpleIntake(){
+        if (gamepad1.dpad_up) {
+            //intake.start();
+        }
+        else{
+            //intake.stop();
+        }
 
     }
 
@@ -104,6 +119,7 @@ public class KKN_TEST extends OpMode {
          //simpleWheelRotation();
          simpleMacenumWheelTest();
          simpleColorDetection();
+         simpleIntake();
 
     }
     public void start() {
@@ -112,8 +128,10 @@ public class KKN_TEST extends OpMode {
 
     public void stop() {
         telemetry.addData("MACNM"," ****** KrakN SHUTTING DOWN ****** ");
-        //driveTest.drive(0,0,0);
+        driveTest.drive(0,0,0);
         colorSensor.stopColorSensor();
+       // intake.stop();
+
     }
 
 

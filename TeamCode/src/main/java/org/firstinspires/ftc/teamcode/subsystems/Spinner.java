@@ -1,10 +1,10 @@
-/*package org.firstinspires.ftc.teamcode.subsystems;
+package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 
-import org.firstinspires.ftc.teamcode.Sensors.ColorSensor;
-import org.firstinspires.ftc.teamcode.Utils;
+import org.firstinspires.ftc.teamcode.mechanism.ColorSensor;
+//import org.firstinspires.ftc.teamcode.Utils;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -64,7 +64,7 @@ public class Spinner implements Subsystem {
      * Check the Color Sensor and if it detects the Object , then stop the spinner
      * else start the spinner
      */
-    /*private void controlBasedColor(){
+    private void controlBasedColor(){
         if (colorSensor.isObjectDetected()) {
             if (isRunnning.get()) {
                stopSpinner().schedule();
@@ -90,4 +90,3 @@ public class Spinner implements Subsystem {
         return new SetPower(spinnerMotor,0.0);
     }
 }
-*/
