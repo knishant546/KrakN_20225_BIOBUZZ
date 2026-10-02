@@ -28,10 +28,11 @@ public class KKN_Limelight extends OpMode {
 
     @Override
     public void init() {
+        telemetry.setMsTransmissionInterval(1000);
         telemetry.addData("INIT"," ****** KrakN WAKING UP ****** ");
 
-        frontLeftMotor = hardwareMap.get(DcMotor.class, "FLDC");
-        frontRightMotor = hardwareMap.get(DcMotor.class, "FRDC");
+       // frontLeftMotor = hardwareMap.get(DcMotor.class, "FLDC");
+      //  frontRightMotor = hardwareMap.get(DcMotor.class, "FRDC");
         rearLeftMotor = hardwareMap.get(DcMotor.class, "RLDC");
         rearRightMotor = hardwareMap.get(DcMotor.class, "RRDC");
 
@@ -42,18 +43,21 @@ public class KKN_Limelight extends OpMode {
         driveTest = new MecanumDrive();
         driveTest.init(hardwareMap, false);
 
-        hardwareColorSensor =
-                hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
+       // hardwareColorSensor =
+        //        hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
 
-        colorSensor =
-                new ColorSensor(hardwareColorSensor, telemetry);
+       // colorSensor =
+          //      new ColorSensor(hardwareColorSensor, telemetry);
 
         // Hardware configuration name must be exactly "limelight".
         limelightTracker =
                 new LimelightTracker(hardwareMap, telemetry);
 
-        telemetry.addLine("A = follow YELLOW POLLEN");
-        telemetry.addLine("B = follow RED NECTAR");
+        telemetry.addLine("A = follow YELLOW POLLEN (pipeline 2)");
+        telemetry.addLine("Hold Y = yellow telemetry only, motors stopped");
+        telemetry.addLine("B = follow RED NECTAR (pipeline 8)");
+        telemetry.addLine("X = AprilTag pose telemetry + manual drive");
+        telemetry.addData("AprilTag pipeline", LimelightTracker.APRILTAG_PIPELINE);
         telemetry.addLine("Release A/B = manual drive");
         telemetry.update();
     }
@@ -69,8 +73,8 @@ public class KKN_Limelight extends OpMode {
         driveTest.drive(forward, strafe, rotate);
 
         telemetry.addData("Drive Mode", "MANUAL");
-        telemetry.addData("FL Power", frontLeftMotor.getPower());
-        telemetry.addData("FR Power", frontRightMotor.getPower());
+        //telemetry.addData("FL Power", frontLeftMotor.getPower());
+        //telemetry.addData("FR Power", frontRightMotor.getPower());
         telemetry.addData("RL Power", rearLeftMotor.getPower());
         telemetry.addData("RR Power", rearRightMotor.getPower());
     }
@@ -79,8 +83,8 @@ public class KKN_Limelight extends OpMode {
      * Test color sensor
      ***********************************************************/
     public void simpleColorDetection() {
-        boolean detected = colorSensor.isObjectDetected();
-        telemetry.addData("Color Sensor Detected", detected);
+      //  boolean detected = colorSensor.isObjectDetected();
+       // telemetry.addData("Color Sensor Detected", detected);
     }
 
     /***********************************************************
@@ -88,11 +92,25 @@ public class KKN_Limelight extends OpMode {
      *
      * Hold A -> follow yellow Pollen
      * Hold B -> follow red Nectar
+     * Press X -> AprilTag telemetry with manual drive
      * No A/B -> normal gamepad Mecanum control
      ***********************************************************/
     public void simpleLimelightFollowTest() {
 
-        if (gamepad1.a) {
+        if (gamepad1.y) {
+            // Diagnostic mode takes priority over all motion buttons and sticks.
+            driveTest.drive(0.0, 0.0, 0.0);
+            limelightTracker.setTargetType(LimelightTracker.TargetType.YELLOW_POLLEN);
+            telemetry.addData("Drive Mode", "YELLOW TELEMETRY ONLY - STOPPED");
+            limelightTracker.update();
+        }
+        else if (gamepad1.x) {
+            // Remains in AprilTag mode after X is released, until A or B is pressed.
+            limelightTracker.setTargetType(LimelightTracker.TargetType.APRILTAG);
+            simpleMecanumWheelTest();
+            limelightTracker.update();
+        }
+        else if (gamepad1.a) {
             telemetry.addData("Drive Mode", "FOLLOW YELLOW POLLEN");
 
             limelightTracker.setTargetType(
@@ -102,10 +120,7 @@ public class KKN_Limelight extends OpMode {
         }
         else if (gamepad1.b) {
             telemetry.addData("Drive Mode", "FOLLOW RED NECTAR");
-
-            limelightTracker.setTargetType(
-                    LimelightTracker.TargetType.RED_NECTAR);
-
+            limelightTracker.setTargetType(LimelightTracker.TargetType.RED_NECTAR);
             limelightTracker.followTarget(driveTest);
         }
         else {
@@ -138,7 +153,7 @@ public class KKN_Limelight extends OpMode {
         simpleLimelightFollowTest();
 
         // Existing color-sensor test can continue at the same time.
-        simpleColorDetection();
+       // simpleColorDetection();
 
         telemetry.addData("Loop Count", loopCount++);
         telemetry.update();
@@ -152,7 +167,7 @@ public class KKN_Limelight extends OpMode {
 
         driveTest.drive(0.0, 0.0, 0.0);
         limelightTracker.stop();
-        colorSensor.stopColorSensor();
+       // colorSensor.stopColorSensor();
         telemetry.update();
     }
 }

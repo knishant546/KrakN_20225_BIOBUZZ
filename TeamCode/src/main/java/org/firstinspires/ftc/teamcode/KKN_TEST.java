@@ -32,13 +32,13 @@ public class KKN_TEST extends OpMode {
     public void init() {
          telemetry.addData("INIT"," ****** KrakN WAKING UP ****** ");
 
-        frontLeftMotor = hardwareMap.get(DcMotor.class, "FLDC");
-        frontRightMotor = hardwareMap.get(DcMotor.class, "FRDC");
+        //frontLeftMotor = hardwareMap.get(DcMotor.class, "FLDC");
+//frontRightMotor = hardwareMap.get(DcMotor.class, "FRDC");
         rearLeftMotor = hardwareMap.get(DcMotor.class, "RLDC");
         rearRightMotor = hardwareMap.get(DcMotor.class, "RRDC");
-        frontLeftMotor.setDirection(DcMotor.Direction.FORWARD);
+        //frontLeftMotor.setDirection(DcMotor.Direction.FORWARD);
         rearLeftMotor.setDirection(DcMotor.Direction.FORWARD);
-        frontRightMotor.setDirection(DcMotor.Direction.REVERSE);
+        //frontRightMotor.setDirection(DcMotor.Direction.REVERSE);
         rearRightMotor.setDirection(DcMotor.Direction.REVERSE);
 
         driveTest = new MecanumDrive();
@@ -47,8 +47,8 @@ public class KKN_TEST extends OpMode {
         //strafe = gamepad1.left_stick_x; //sideways
        // rotate = gamepad1.right_stick_x; //rotate
 
-        hardwareColorSensor = hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
-        colorSensor = new ColorSensor(hardwareColorSensor, telemetry);
+       // hardwareColorSensor = hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
+      //  colorSensor = new ColorSensor(hardwareColorSensor, telemetry);
        // intake= new Intake();
         //intake.init(hardwareMap);
 
@@ -59,19 +59,19 @@ public class KKN_TEST extends OpMode {
 
         public void simpleWheelRotation() {
         if (gamepad1.dpad_up) {
-            frontLeftMotor.setPower(0.5);
+           // frontLeftMotor.setPower(0.5);
             rearLeftMotor.setPower(0.5);
-            frontRightMotor.setPower(0.5);
+           // frontRightMotor.setPower(0.5);
             rearRightMotor.setPower(0.5);
         }
         if (gamepad1.dpad_down) {
-            frontLeftMotor.setPower(0.0);
+            //frontLeftMotor.setPower(0.0);
             rearLeftMotor.setPower(0.0);
-            frontRightMotor.setPower(0.0);
+            //frontRightMotor.setPower(0.0);
             rearRightMotor.setPower(0.0);
     }
-        telemetry.addData("FL Power", frontLeftMotor.getPower());
-        telemetry.addData("FR Power", frontRightMotor.getPower());
+        //telemetry.addData("FL Power", frontLeftMotor.getPower());
+       // telemetry.addData("FR Power", frontRightMotor.getPower());
         telemetry.addData("Loop Count", loopCount++);
         }
 
@@ -85,8 +85,8 @@ public class KKN_TEST extends OpMode {
         double rotate = gamepad1.right_stick_x;
 
         driveTest.drive(forward, strafe, rotate);
-        telemetry.addData("FL Power", frontLeftMotor.getPower());
-        telemetry.addData("FR Power", frontRightMotor.getPower());
+        //telemetry.addData("FL Power", frontLeftMotor.getPower());
+        //telemetry.addData("FR Power", frontRightMotor.getPower());
         telemetry.addData("RL Power", rearLeftMotor.getPower());
         telemetry.addData("RR Power", rearRightMotor.getPower());
         telemetry.addData("Loop Count", loopCount++);
@@ -118,8 +118,8 @@ public class KKN_TEST extends OpMode {
     public void loop(){
          //simpleWheelRotation();
          simpleMacenumWheelTest();
-         simpleColorDetection();
-         simpleIntake();
+        // simpleColorDetection();
+         //simpleIntake();
 
     }
     public void start() {

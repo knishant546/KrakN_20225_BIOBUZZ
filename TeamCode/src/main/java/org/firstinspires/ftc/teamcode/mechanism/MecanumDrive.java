@@ -19,20 +19,20 @@ public class MecanumDrive {
     private boolean isPinpoint;
 
     public void init(HardwareMap hwMap, boolean isGobildaPinpointIMU) {
-        frontLeftMotor = hwMap.get(DcMotor.class, "FLDC");
+       // frontLeftMotor = hwMap.get(DcMotor.class, "FLDC");
         backLeftMotor = hwMap.get(DcMotor.class, "RLDC");
-        frontRightMotor = hwMap.get(DcMotor.class, "FRDC");
+       // frontRightMotor = hwMap.get(DcMotor.class, "FRDC");
         backRightMotor = hwMap.get(DcMotor.class, "RRDC");
 
-        frontLeftMotor.setDirection(DcMotor.Direction.REVERSE);
+        //frontLeftMotor.setDirection(DcMotor.Direction.REVERSE);
         backLeftMotor.setDirection(DcMotor.Direction.REVERSE);
         backRightMotor.setDirection(DcMotor.Direction.FORWARD);
-        frontRightMotor.setDirection(DcMotor.Direction.REVERSE);
+       // frontRightMotor.setDirection(DcMotor.Direction.REVERSE);
 
 
-        frontLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+       // frontLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        frontRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        //frontRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
 
@@ -68,22 +68,22 @@ public class MecanumDrive {
     }
 
     public void drive(double forward, double strafe, double rotate) {
-        double frontLeftPower = forward + strafe + rotate;
+       // double frontLeftPower = forward + strafe + rotate;
         double backLeftPower = forward - strafe + rotate;
-        double frontRightPower = forward - strafe - rotate;
+       // double frontRightPower = forward - strafe - rotate;
         double backRightPower = forward + strafe - rotate;
 
         double maxPower = 0.3;
         double maxSpeed = 0.3;
 
-        maxPower = Math.max(maxPower, Math.abs(frontLeftPower));
+       // maxPower = Math.max(maxPower, Math.abs(frontLeftPower));
         maxPower = Math.max(maxPower, Math.abs(backLeftPower));
-        maxPower = Math.max(maxPower, Math.abs(frontRightPower));
+       // maxPower = Math.max(maxPower, Math.abs(frontRightPower));
         maxPower = Math.max(maxPower, Math.abs(backRightPower));
 
-        frontLeftMotor.setPower(maxSpeed * (frontLeftPower / maxPower));
+        //frontLeftMotor.setPower(maxSpeed * (frontLeftPower / maxPower));
         backLeftMotor.setPower(maxSpeed * (backLeftPower / maxPower));
-        frontRightMotor.setPower(maxSpeed * (frontRightPower / maxPower));
+        //frontRightMotor.setPower(maxSpeed * (frontRightPower / maxPower));
         backRightMotor.setPower(maxSpeed * (backRightPower / maxPower));
     }
 
