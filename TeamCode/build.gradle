@@ -19,6 +19,15 @@ apply from: '../build.dependencies.gradle'
 android {
     namespace = 'org.firstinspires.ftc.teamcode'
 
+    // Keep these experimental OpModes in source control, outside every APK build.
+    sourceSets {
+        main {
+            java {
+                exclude 'org/firstinspires/ftc/teamcode/TestAppl/DecodeTeleop.java'
+                exclude 'org/firstinspires/ftc/teamcode/TestAppl/AutoRedBack.java'
+            }
+        }
+    }
     packagingOptions {
         jniLibs.useLegacyPackaging true
     }

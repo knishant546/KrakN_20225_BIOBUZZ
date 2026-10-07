@@ -1,13 +1,13 @@
-package org.firstinspires.ftc.teamcode;
+package org.firstinspires.ftc.teamcode.TestAppl;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 
-import org.firstinspires.ftc.teamcode.mechanism.ColorSensor;
-import org.firstinspires.ftc.teamcode.mechanism.LimelightTracker;
-import org.firstinspires.ftc.teamcode.mechanism.MecanumDrive;
+import org.firstinspires.ftc.teamcode.subsystems.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.LimelightTracker;
+import org.firstinspires.ftc.teamcode.subsystems.MecanumDrive;
 
 @TeleOp(name="Krak_N_Auto-2.1")
 public class KKN_Limelight extends OpMode {
@@ -31,8 +31,8 @@ public class KKN_Limelight extends OpMode {
         telemetry.setMsTransmissionInterval(1000);
         telemetry.addData("INIT"," ****** KrakN WAKING UP ****** ");
 
-       // frontLeftMotor = hardwareMap.get(DcMotor.class, "FLDC");
-      //  frontRightMotor = hardwareMap.get(DcMotor.class, "FRDC");
+        frontLeftMotor = hardwareMap.get(DcMotor.class, "FLDC");
+        frontRightMotor = hardwareMap.get(DcMotor.class, "FRDC");
         rearLeftMotor = hardwareMap.get(DcMotor.class, "RLDC");
         rearRightMotor = hardwareMap.get(DcMotor.class, "RRDC");
 
@@ -73,8 +73,8 @@ public class KKN_Limelight extends OpMode {
         driveTest.drive(forward, strafe, rotate);
 
         telemetry.addData("Drive Mode", "MANUAL");
-        //telemetry.addData("FL Power", frontLeftMotor.getPower());
-        //telemetry.addData("FR Power", frontRightMotor.getPower());
+        telemetry.addData("FL Power", frontLeftMotor.getPower());
+        telemetry.addData("FR Power", frontRightMotor.getPower());
         telemetry.addData("RL Power", rearLeftMotor.getPower());
         telemetry.addData("RR Power", rearRightMotor.getPower());
     }

@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.pedroPathing;
+package org.firstinspires.ftc.teamcode.subsystems.pedroPathing;
 
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.revhub.drivetrains.Mecanum;
@@ -6,7 +6,7 @@ import com.pedropathing.revhub.drivetrains.Mecanum;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 
 @TeleOp(name = "Pedro Mecanum Test")
 public class PedroMecanumTest extends LinearOpMode {

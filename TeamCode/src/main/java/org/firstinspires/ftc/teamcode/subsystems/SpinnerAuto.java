@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 
-import org.firstinspires.ftc.teamcode.mechanism.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.ColorSensor;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

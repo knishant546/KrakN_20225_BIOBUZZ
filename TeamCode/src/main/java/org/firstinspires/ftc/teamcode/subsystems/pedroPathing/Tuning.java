@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.pedroPathing;
+package org.firstinspires.ftc.teamcode.subsystems.pedroPathing;
 
 /**
  * Pedro Pathing 3 migration placeholder.
