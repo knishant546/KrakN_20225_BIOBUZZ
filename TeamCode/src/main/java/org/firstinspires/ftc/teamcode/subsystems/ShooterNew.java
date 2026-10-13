@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.utility.InstantCommand;
@@ -41,7 +42,12 @@ public class ShooterNew implements Subsystem {
 
     @Override
     public void initialize() {
-        this.shooterMotor = ActiveOpMode.hardwareMap().get(DcMotorEx.class, "shooter");
+        initialize(ActiveOpMode.hardwareMap());
+    }
+
+    /** Explicit initialization for ordinary FTC OpModes without NextFTC scheduling. */
+    public void initialize(HardwareMap hardwareMap) {
+        this.shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
         TARGET_VELOCITY = 2600;
 
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -53,6 +59,26 @@ public class ShooterNew implements Subsystem {
         integral = 0;
         lastError = 0;
         powerFactor = 1;
+    }
+
+    /** Immediate velocity control for a nonblocking autonomous state machine. */
+    public void runVelocity(double ticksPerSecond) {
+        if (!Double.isFinite(ticksPerSecond) || ticksPerSecond < 0 || ticksPerSecond > max_goal) {
+            throw new IllegalArgumentException("Shooter velocity must be 0..2600 ticks/s");
+        }
+        TARGET_VELOCITY = ticksPerSecond;
+        shooterMotor.setVelocity(ticksPerSecond);
+    }
+
+    public double measuredVelocity() { return shooterMotor.getVelocity(); }
+
+    /** Stop directly: shutdown must not depend on a command scheduler running again. */
+    public void stopImmediately() {
+        TARGET_VELOCITY = 0;
+        if (shooterMotor != null) {
+            shooterMotor.setVelocity(0);
+            shooterMotor.setPower(0);
+        }
     }
 
     // Not currently registered as the Subsystem periodic() method.

@@ -36,9 +36,9 @@ public class Constants {
 
 
 
-                c.frontLeftDirection.set(DcMotorSimple.Direction.REVERSE);
-                c.backLeftDirection.set(DcMotorSimple.Direction.REVERSE);
-                c.backRightDirection.set(DcMotorSimple.Direction.FORWARD);
+                c.frontLeftDirection.set(DcMotorSimple.Direction.FORWARD);
+                c.backLeftDirection.set(DcMotorSimple.Direction.FORWARD);
+                c.backRightDirection.set(DcMotorSimple.Direction.REVERSE);
                 c.frontRightDirection.set(DcMotorSimple.Direction.REVERSE);
 
 
@@ -68,7 +68,7 @@ public class Constants {
                 c.name.set("pinpoint");
 
                 c.xPodOffset.set(0.1);
-                c.yPodOffset.set(6.25);
+                c.yPodOffset.set(2.5);
 
                 c.offsetUnits.set(DistanceUnit.INCH);
                 c.globalDistanceUnit.set(DistanceUnit.INCH);
@@ -81,7 +81,8 @@ public class Constants {
                         GoBildaPinpointDriver.EncoderDirection.REVERSED
                 );
                 c.yPodDirection.set(
-                        GoBildaPinpointDriver.EncoderDirection.FORWARD
+                        //GoBildaPinpointDriver.EncoderDirection.FORWARD
+                        GoBildaPinpointDriver.EncoderDirection.REVERSED
                 );
             }
     );

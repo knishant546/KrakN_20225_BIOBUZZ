@@ -96,9 +96,9 @@ public class AutoTEST extends NextFTCOpMode {
 //=======================Test ONLY==========================
         startPose = new Pose(0, 0, Math.toRadians(0));
 
-        corner1 = new Pose(36, 0, Math.toRadians(0));
-        turn1   = new Pose(36, -24, Math.toRadians(0));
-
+        //corner1 = new Pose(0, 48, Math.toRadians(0));
+        turn1   = new Pose(90, 48, Math.toRadians(0));
+/*
         corner2 = new Pose(0, -24, Math.toRadians(0));
         turn2   = new Pose(0, 0, Math.toRadians(0));
         corner3 = new Pose(0, -12, Math.toRadians(180));
@@ -110,31 +110,26 @@ public class AutoTEST extends NextFTCOpMode {
         corner4 = new Pose(0, 0, Math.toRadians(90));
 
 // Final right turn back to original heading
-        turn4 = new Pose(0, 0, Math.toRadians(0));
+        turn4 = new Pose(0, 0, Math.toRadians(0));*/
         //=======================Test ONLY==========================
     }
 
     private Command autonomousRoutine() {
         return new SequentialGroup(
-              //  buildMoveCommand(startPoseStraight, adjustPoseToShoot),
-               // buildMoveCommand(adjustPoseToShoot, moveToPickRow)
-                //new Delay(3),
-                //buildMoveCommand(adjustPoseToShoot, moveToPickRow),
-                //new Delay(3),
-                //buildMoveCommand(moveToPickRow, adjustOut)
+
 //=======================Test ONLY==========================
                 // Forward 12"
                 // Forward 12"
-                buildMoveCommand(startPose, corner1),
-                new Delay(3),
+                buildMoveCommand(startPose, turn1),
+                new Delay(3)
                 // Turn RIGHT 90° in place
-                buildMoveCommand(corner1,turn1),
-                new Delay(3),
+                // buildMoveCommand(corner1,turn1)
+              //  new Delay(3),
                 // Forward 12"
-                buildMoveCommand(turn1, corner2),
-                new Delay(3),
+             //   buildMoveCommand(turn1, corner2),
+             //   new Delay(3),
                 // Turn RIGHT 90° in place
-                buildMoveCommand(corner2,turn2)
+             //   buildMoveCommand(corner2,turn2)
                 // Side 3
                // buildMoveCommand(turn2, corner3),
                 //buildTurnCommand(turn3),

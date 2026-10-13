@@ -12,9 +12,9 @@ import org.firstinspires.ftc.teamcode.subsystems.Intake;
 
 
 //@Disabled
-@TeleOp(name="KKN_TEST")
+@TeleOp(name="KKN_Teleop")
 //@Autonomous(name="Krak_N_Teleop-2")
-public class KKN_TEST extends OpMode {
+public class KKN_TeleOP extends OpMode {
      DcMotor frontLeftMotor;
      DcMotor frontRightMotor;
      DcMotor rearLeftMotor;
@@ -36,46 +36,17 @@ public class KKN_TEST extends OpMode {
         frontRightMotor = hardwareMap.get(DcMotor.class, "FRDC");
         rearLeftMotor = hardwareMap.get(DcMotor.class, "RLDC");
         rearRightMotor = hardwareMap.get(DcMotor.class, "RRDC");
-        frontLeftMotor.setDirection(DcMotor.Direction.FORWARD);
-        rearLeftMotor.setDirection(DcMotor.Direction.FORWARD);
-        frontRightMotor.setDirection(DcMotor.Direction.REVERSE);
-        rearRightMotor.setDirection(DcMotor.Direction.REVERSE);
-
         driveTest = new MecanumDrive();
         driveTest.init(hardwareMap,false);
-       // forward = -gamepad1.left_stick_y; // Forward backward on Y axis
-        //strafe = gamepad1.left_stick_x; //sideways
-       // rotate = gamepad1.right_stick_x; //rotate
-
+        driveTest.drive(0,0,0);
        // hardwareColorSensor = hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
       //  colorSensor = new ColorSensor(hardwareColorSensor, telemetry);
-       // intake= new Intake();
-        //intake.init(hardwareMap);
+       intake= new Intake();
+       intake.init(hardwareMap);
 
         }
-/**********************************************************
-        Test to check if we are able to rotate wheels #1
-/**********************************************************/
 
-        public void simpleWheelRotation() {
-        if (gamepad1.dpad_up) {
-        frontLeftMotor.setPower(0.5);
-            rearLeftMotor.setPower(0.5);
-        frontRightMotor.setPower(0.5);
-            rearRightMotor.setPower(0.5);
-        }
-        if (gamepad1.dpad_down) {
-        frontLeftMotor.setPower(0.0);
-            rearLeftMotor.setPower(0.0);
-        frontRightMotor.setPower(0.0);
-            rearRightMotor.setPower(0.0);
-    }
-        telemetry.addData("FL Power", frontLeftMotor.getPower());
-        telemetry.addData("FR Power", frontRightMotor.getPower());
-        telemetry.addData("Loop Count", loopCount++);
-        }
-
-    /***********************************************************
+        /***********************************************************
      Test to check if we are able to use Mecanum Drive library #2
      /**********************************************************/
     public void simpleMacenumWheelTest() {
@@ -89,16 +60,16 @@ public class KKN_TEST extends OpMode {
         telemetry.addData("FR Power", frontRightMotor.getPower());
         telemetry.addData("RL Power", rearLeftMotor.getPower());
         telemetry.addData("RR Power", rearRightMotor.getPower());
-        telemetry.addData("Loop Count", loopCount++);
+        //telemetry.addData("Loop Count", loopCount++);
 
     }
 
     public void simpleIntake(){
         if (gamepad1.dpad_up) {
-            //intake.start();
+            intake.start();
         }
-        else{
-            //intake.stop();
+        else if (gamepad1.dpad_down) {
+            intake.stop();
         }
 
     }
@@ -116,10 +87,10 @@ public class KKN_TEST extends OpMode {
 
     }
     public void loop(){
-         //simpleWheelRotation();
-         simpleMacenumWheelTest();
+
+        simpleMacenumWheelTest();
         // simpleColorDetection();
-         //simpleIntake();
+         simpleIntake();
 
     }
     public void start() {
@@ -129,8 +100,8 @@ public class KKN_TEST extends OpMode {
     public void stop() {
         telemetry.addData("MACNM"," ****** KrakN SHUTTING DOWN ****** ");
         driveTest.drive(0,0,0);
-        colorSensor.stopColorSensor();
-       // intake.stop();
+       //   colorSensor.stopColorSensor();
+       intake.stop();
 
     }
 

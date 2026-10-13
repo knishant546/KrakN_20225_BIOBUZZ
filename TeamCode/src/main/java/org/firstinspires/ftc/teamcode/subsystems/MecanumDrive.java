@@ -10,6 +10,8 @@ import com.qualcomm.robotcore.hardware.IMU;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
+import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
+import com.pedropathing.revhub.localizers.PinpointConfig;
 
 public class MecanumDrive {
     private DcMotor frontLeftMotor, backLeftMotor, frontRightMotor, backRightMotor;
@@ -24,12 +26,18 @@ public class MecanumDrive {
         frontRightMotor = hwMap.get(DcMotor.class, "FRDC");
         backRightMotor = hwMap.get(DcMotor.class, "RRDC");
 
+
+        frontLeftMotor.setDirection(DcMotor.Direction.FORWARD);
+        backLeftMotor.setDirection(DcMotor.Direction.FORWARD);
+        backRightMotor.setDirection(DcMotor.Direction.REVERSE);
+        frontRightMotor.setDirection(DcMotor.Direction.REVERSE);
+/*
         frontLeftMotor.setDirection(DcMotor.Direction.REVERSE);
         backLeftMotor.setDirection(DcMotor.Direction.REVERSE);
         backRightMotor.setDirection(DcMotor.Direction.FORWARD);
         frontRightMotor.setDirection(DcMotor.Direction.REVERSE);
 
-
+*/
         frontLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         frontRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -38,17 +46,20 @@ public class MecanumDrive {
 
         if (isGobildaPinpointIMU) {
             isPinpoint = true;
-            double offsetX = -170;
-            double offsetY = 0; // pod offset measurements in mm
-            double encoderCPR = 4000; // gobilda pods are 2K, EastLoop Components are 4K
-            double encoderWheelCircumference = 2 * Math.PI * 16; // wheels are 32mm radius
-
-            pinpoint = hwMap.get(GoBildaPinpointDriver.class, "pinpoint");
-            pinpoint.setOffsets(offsetX, offsetY, DistanceUnit.MM);
-            pinpoint.setEncoderResolution((encoderCPR / encoderWheelCircumference), DistanceUnit.MM);
-
-            pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
-                    GoBildaPinpointDriver.EncoderDirection.FORWARD);
+            // Read the same configuration as Pedro's PinpointLocalizer, including units.
+            // Future pod calibration changes belong in Constants.localizerConfig only.
+            PinpointConfig config = Constants.localizerConfig;
+            pinpoint = hwMap.get(GoBildaPinpointDriver.class, config.name.get());
+            pinpoint.setOffsets(config.xPodOffset.get(), config.yPodOffset.get(),
+                    config.offsetUnits.get());
+            if (config.ticksPerUnit.get().isPresent()) {
+                pinpoint.setEncoderResolution(config.ticksPerUnit.get().getAsDouble(),
+                        config.encoderResolutionUnit.get());
+            } else {
+                pinpoint.setEncoderResolution(config.podType.get());
+            }
+            pinpoint.setEncoderDirections(config.xPodDirection.get(), config.yPodDirection.get());
+            // Preserve existing init behavior: this resets pose rather than carrying Auto forward.
             pinpoint.resetPosAndIMU();
 
 
