@@ -1,4 +1,15 @@
-package org.firstinspires.ftc.teamcode.AutoAppl;
+/* ============================================================================
+ * Class: HiveAutoBase
+ * What it does:
+ *   Implements the shared draft hive autonomous collection, shooting, vision, and navigation state machine.
+ * Applications using it:
+ *   AutoBlueD1 [disabled draft]
+ *   AutoBlueD6 [disabled draft]
+ *   AutoRedC1 [disabled draft]
+ *   AutoRedC6 [disabled draft]
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.AutoAppl.test;
 
 import static com.pedropathing.api.Paths.line;
 import com.pedropathing.follower.Follower;
@@ -7,7 +18,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.*;
 import com.qualcomm.hardware.limelightvision.*;
 import org.firstinspires.ftc.robotcore.external.navigation.*;
-import org.firstinspires.ftc.teamcode.subsystems.ShooterNew;
+import org.firstinspires.ftc.teamcode.subsystems.test.ShooterNew;
 import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 import java.util.*;
 

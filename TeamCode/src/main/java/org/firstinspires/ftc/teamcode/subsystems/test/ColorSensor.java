@@ -1,4 +1,19 @@
-package org.firstinspires.ftc.teamcode.subsystems;
+/* ============================================================================
+ * Class: ColorSensor
+ * What it does:
+ *   Reads normalized color telemetry and detects object presence using an alpha threshold, not yellow classification.
+ * Applications using it:
+ *   AutoBlueD1 [disabled draft]
+ *   AutoBlueD6 [disabled draft]
+ *   AutoRedBack [excluded from build]
+ *   AutoRedC1 [disabled draft]
+ *   AutoRedC6 [disabled draft]
+ *   DecodeTeleop [excluded from build]
+ *   KKN_Limelight
+ *   KKN_TeleOP
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test;
 
 //import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
 import org.firstinspires.ftc.robotcore.external.Telemetry;

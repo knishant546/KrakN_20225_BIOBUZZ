@@ -1,3 +1,10 @@
+/* ============================================================================
+ * Class: KKN_TeleOP
+ * What it does:
+ *   Runs the earlier mecanum driving and intake test OpMode.
+ * Applications using it:
+ *   KKN_TeleOP (Driver Station entry point).
+ * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TestAppl;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -6,7 +13,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 
 import org.firstinspires.ftc.teamcode.subsystems.MecanumDrive;
-import org.firstinspires.ftc.teamcode.subsystems.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 
 

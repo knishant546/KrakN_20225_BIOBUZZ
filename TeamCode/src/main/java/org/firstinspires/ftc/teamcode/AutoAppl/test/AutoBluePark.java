@@ -1,4 +1,11 @@
-package org.firstinspires.ftc.teamcode.AutoAppl;
+/* ============================================================================
+ * Class: AutoBluePark
+ * What it does:
+ *   Runs the older BLUE D6-to-F2 chassis-only parking test using Pedro paths.
+ * Applications using it:
+ *   AutoBluePark (Driver Station entry point).
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.AutoAppl.test;
 
 import static com.pedropathing.api.Paths.line;
 import com.pedropathing.follower.Follower;
@@ -16,7 +23,7 @@ import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 
 /** Parking-only test. Field inches: +X toward F, +Y toward row 6.
  * Place chassis CENTER at D6 (84,132), facing row 5 (-90 degrees).
- * Uses AutoTEST's command pattern and shared drivetrain/Pinpoint settings.
+ * Uses RED_AutoGarden's command pattern and shared drivetrain/Pinpoint settings.
  */
 @Autonomous(name="Blue Park - D6 to F2", group="Chassis test")
 public final class AutoBluePark extends NextFTCOpMode {
@@ -41,7 +48,7 @@ public final class AutoBluePark extends NextFTCOpMode {
         f2=new Pose(132,36,h);
     }
     private Command buildMoveCommand(Pose from,Pose to,int number) {
-        // Construct during INIT; use the same speed and holdEnd default as AutoTEST.
+        // Construct during INIT; use the same speed and holdEnd default as RED_AutoGarden.
         Path path=line(from,to).linear(from,to);
         return new LambdaCommand("BlueParkLeg"+number)
                 .setStart(() -> {
@@ -76,7 +83,7 @@ public final class AutoBluePark extends NextFTCOpMode {
         routine.schedule();
     }
     @Override public void onUpdate() {
-        // Match AutoTEST: update Pedro every loop, including INIT and command pauses.
+        // Match RED_AutoGarden: update Pedro every loop, including INIT and command pauses.
         if(started && !done && getRuntime()-startTime>=AUTO_TIMEOUT) {
             done=true;
             routine.cancel(); // Cancel the group so a later leg cannot restart the motors.

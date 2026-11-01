@@ -1,4 +1,15 @@
-package org.firstinspires.ftc.teamcode.AutoAppl;
+/* ============================================================================
+ * Class: YellowPollenCounter
+ * What it does:
+ *   Counts yellow-pollen detection events for the older autonomous collection logic.
+ * Applications using it:
+ *   AutoBlueD1 [disabled draft]
+ *   AutoBlueD6 [disabled draft]
+ *   AutoRedC1 [disabled draft]
+ *   AutoRedC6 [disabled draft]
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.AutoAppl.test;
 
 /** Counts yellow arrivals once; another count requires a stable empty sensor gap. */
 public final class YellowPollenCounter {

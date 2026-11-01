@@ -1,0 +1,251 @@
+/* ============================================================================
+ * Class: BLUE_AutoFlower
+ * What it does:
+ *   Runs the BLUE Flower shooting/collection route, with a 24-second parking deadline and 30-second stop.
+ * Applications using it:
+ *   BLUE_AutoFlower (Driver Station entry point).
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.AutoAppl;
+
+import static com.pedropathing.api.Paths.line;
+
+import com.pedropathing.follower.Follower;
+import com.pedropathing.math.Pose;
+import com.pedropathing.paths.Path;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import org.firstinspires.ftc.teamcode.subsystems.AutoShootSequence;
+import org.firstinspires.ftc.teamcode.subsystems.HiveUpTagIDLogic;
+import org.firstinspires.ftc.teamcode.subsystems.IntakeArmSingleServo;
+import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
+import dev.nextftc.core.commands.Command;
+import dev.nextftc.core.commands.delays.Delay;
+import dev.nextftc.core.commands.groups.SequentialGroup;
+import dev.nextftc.core.commands.utility.InstantCommand;
+import dev.nextftc.core.commands.utility.LambdaCommand;
+import dev.nextftc.core.components.BindingsComponent;
+import dev.nextftc.ftc.NextFTCOpMode;
+import dev.nextftc.ftc.components.BulkReadComponent;
+
+/** Flower routine in the same start-relative coordinate frame as BLUE_AutoGarden. */
+@Autonomous(name = "BLUE_AutoFlower")
+public class BLUE_AutoFlower extends NextFTCOpMode {
+    // Straight is -X as in BLUE_AutoGarden; opposite strafe is +Y. All headings remain zero.
+    private Pose startPose;
+    private Pose flwrPos1;
+    private Pose straightEnd;
+    private Pose strafeEnd;
+    private Pose flwrPos2;
+    private Pose exitStraight;
+    private Pose finalPose;
+    private final AutoShootSequence shooting = new AutoShootSequence();
+    private final IntakeArmSingleServo arm = new IntakeArmSingleServo();
+    private Follower follower;
+    private HiveUpTagIDLogic hiveTags;
+    private static final double HIVE_WAIT_TIMEOUT_SECONDS = 10.0;
+    private long hiveWaitStartedAt;
+    private static final double HIVE_SETTLE_SECONDS = 3.0;
+    private long hiveDetectedAt;
+    private boolean hiveDetected;
+    private boolean hiveGateDone;
+    private String hiveGateResult = "Not checked";
+    private Command routine, deadlinePark;
+    private long autoStartedAt;
+    private boolean autoRunning, parkingStarted;
+    private static final double PARK_DEADLINE_SECONDS = 24.0;
+    private static final double AUTO_LIMIT_SECONDS = 30.0;
+    private String stage = "Ready";
+    // Test only: stop the backward leg after one second, regardless of follower busy state.
+    private static final double BACKWARD_TEST_SECONDS = 1.0;
+    private long backwardStartedAt;
+
+    public BLUE_AutoFlower() {
+        addComponents(BulkReadComponent.INSTANCE, BindingsComponent.INSTANCE);
+    }
+
+    /** Define start-relative waypoints during INIT, matching BLUE_AutoGarden's structure. */
+    // BLUE placement is the RED setup rotated 180 degrees on the field.
+    // Resetting that starting pose to (0,0,0) preserves these local coordinates/headings.
+    private void buildPath() {
+        startPose = new Pose(0, 0, 0);
+        flwrPos1 = new Pose(-1, 0, 0);
+        straightEnd = new Pose(-10, 0, 0);
+        strafeEnd = new Pose(-10, 10, 0);
+        flwrPos2 = new Pose(-5, 10, 0); // Back 5 inches means +X.
+        exitStraight = new Pose(-11, 10, 0); // Straight 6 more inches in -X.
+        finalPose = new Pose(-11, 42, 0); // Another 32 inches in +Y.
+    }
+
+    private Command buildMoveCommand(Pose from, Pose to, String label) {
+        Path path = line(from, to).linear(from, to);
+        return new LambdaCommand(label)
+                .setStart(() -> { stage = label; follower.follow(path); })
+                .setIsDone(() -> !follower.isBusy())
+                .setStop(interrupted -> follower.stop());
+    }
+
+    /** Test-only bounded movement: timing does not guarantee reaching the five-inch target. */
+    private Command buildTimedBackwardCommand() {
+        Path path = line(strafeEnd, flwrPos2).linear(strafeEnd, flwrPos2);
+        return new LambdaCommand("Timed backward test")
+                .setStart(() -> {
+                    stage = "Back 5 inches: one-second timed test";
+                    backwardStartedAt = System.nanoTime();
+                    follower.follow(path);
+                })
+                .setIsDone(() -> (System.nanoTime() - backwardStartedAt) / 1e9
+                        >= BACKWARD_TEST_SECONDS)
+                .setStop(interrupted -> follower.stop());
+    }
+    private Command stage(String label) {
+        return new InstantCommand(() -> stage = label);
+    }
+
+    /** First shot: require >=2 Flower tags for 3 continuous seconds, or shoot on the 10-second timeout. */
+    private Command buildHiveWaitCommand() {
+        return new LambdaCommand("Wait for BLUE Flower hive")
+                .setStart(() -> {
+                    shooting.stop();
+                    hiveTags.reset();
+                    hiveWaitStartedAt = System.nanoTime();
+                    hiveGateDone = false;
+                    hiveDetected = false;
+                    hiveGateResult = "Waiting (up to 10 seconds)";
+                    stage = "FlwrPos1: checking hive tags";
+                })
+                .setUpdate(() -> {
+                    hiveTags.update();
+                    long now = System.nanoTime();
+                    // Require 2, 3, or 4 distinct Flower IDs throughout the settling period.
+                    // Losing the count or fresh camera data restarts the full three seconds.
+                    if (hiveTags.isBlueFlowerUp()) {
+                        if (!hiveDetected) {
+                            hiveDetected = true;
+                            hiveDetectedAt = now;
+                        }
+                        double remaining = HIVE_SETTLE_SECONDS - (now - hiveDetectedAt) / 1e9;
+                        hiveGateResult = remaining > 0
+                                ? String.format("Flower count >=2; settling %.1f s", remaining)
+                                : "Flower count >=2 maintained for 3 seconds";
+                        hiveGateDone = remaining <= 0;
+                    } else {
+                        hiveDetected = false;
+                        hiveGateResult = "Flower count <2 or invalid/stale data; settling reset";
+                    }
+                    // Preserve the user's unconditional fallback at the overall ten-second limit.
+                    if (!hiveGateDone && (now - hiveWaitStartedAt) / 1e9 >= HIVE_WAIT_TIMEOUT_SECONDS) {
+                        hiveGateResult = "10-second timeout: shooting WITHOUT UP confirmation";
+                        hiveGateDone = true;
+                    }
+                })
+                .setIsDone(() -> hiveGateDone)
+                .setStop(interrupted -> { if (interrupted) shooting.stop(); });
+    }
+    /** Stop scoring before parking, including when a deadline interrupts a command. */
+    private void prepareParking() {
+        parkingStarted = true;
+        shooting.stop();
+        arm.liftUp();
+        hiveTags.stop();
+        stage = "Parking";
+    }
+
+    /** Reserve the last six seconds; build the recovery path from live odometry. */
+    private void enforceAutoDeadline() {
+        if (!autoRunning) return;
+        double elapsed = (System.nanoTime() - autoStartedAt) / 1e9;
+        if (elapsed >= AUTO_LIMIT_SECONDS) {
+            autoRunning = false;
+            if (routine != null) routine.cancel();
+            if (deadlinePark != null) deadlinePark.cancel();
+            shooting.stop();
+            hiveTags.stop();
+            follower.stop();
+            stage = "30 seconds: all motion stopped";
+        } else if (elapsed >= PARK_DEADLINE_SECONDS && !parkingStarted) {
+            if (routine != null) routine.cancel();
+            follower.stop();
+            prepareParking();
+            // As in Garden, this direct recovery route needs field clearance validation.
+            deadlinePark = buildMoveCommand(follower.pose(), finalPose,
+                    "24-second deadline: direct parking from current pose");
+            deadlinePark.schedule();
+        }
+    }
+
+    private Command autonomousRoutine() {
+        return new SequentialGroup(
+                buildMoveCommand(startPose, flwrPos1, "Move straight 1 inch to FlwrPos1"),
+                buildHiveWaitCommand(),
+                stage("FlwrPos1: shoot at 60% speed"),
+                // Intake + shooter start together; feeder at 1 s, then 4 s feeding.
+                shooting.command(AutoShootSequence.SHOOTER_SPEED_FRACTION, 5.0),
+                buildMoveCommand(flwrPos1, straightEnd, "Move straight 9 more inches"),
+                buildMoveCommand(straightEnd, strafeEnd, "Strafe 10 inches opposite BLUE_AutoGarden"),
+                stage("Arm down to " + IntakeArmSingleServo.DOWN_DEGREES + " degrees; wait 1 second"),
+                // Use the shared down-position setting; retain the separate intermediate preset.
+                new InstantCommand(() -> arm.liftDown()),
+                new Delay(1),
+                // To test normal completion, uncomment the next call and comment out the timed call.
+                // buildMoveCommand(strafeEnd, flwrPos2, "Back 5 inches to FlwrPos2"),
+                buildTimedBackwardCommand(),
+                stage("FlwrPos2: wait 2 seconds"),
+                new Delay(2),
+                stage("FlwrPos2: shoot at 60% speed"),
+                // Same 60% velocity target as TeleOp; 1 s startup plus 5 s feeding.
+                shooting.command(AutoShootSequence.SHOOTER_SPEED_FRACTION, 6.0),
+                // Vision is no longer needed: stop polling before driving to parking.
+                new InstantCommand(this::prepareParking),
+                buildMoveCommand(flwrPos2, exitStraight, "Move straight 6 inches after shooting"),
+                buildMoveCommand(exitStraight, finalPose, "Strafe 32 more inches"),
+                stage("Complete - Limelight polling stopped")
+        );
+    }
+
+    @Override public void onInit() {
+        autoRunning = false;
+        parkingStarted = false;
+        deadlinePark = null;
+        buildPath();
+        shooting.init(hardwareMap);
+        hiveTags = new HiveUpTagIDLogic(hardwareMap, HiveUpTagIDLogic.Alliance.BLUE);
+        hiveTags.start();
+        arm.init(hardwareMap); // Fold up during INIT.
+        follower = Constants.createFollower(hardwareMap);
+        follower.setPose(startPose);
+        // Prepare commands and paths during INIT; execute only after START.
+        routine = autonomousRoutine();
+    }
+
+    @Override public void onStartButtonPressed() {
+        autoStartedAt = System.nanoTime();
+        autoRunning = true;
+        routine.schedule();
+    }
+
+    @Override public void onUpdate() {
+        follower.update();
+        enforceAutoDeadline();
+        telemetry.addData("Auto seconds remaining", "%.1f", autoRunning
+                ? Math.max(0, AUTO_LIMIT_SECONDS - (System.nanoTime() - autoStartedAt) / 1e9) : 0);
+        telemetry.addData("BLUE_AutoFlower stage", stage);
+        telemetry.addData("Shooting sequence", shooting.getStatus());
+        telemetry.addData("Hive gate result", hiveGateResult);
+        telemetry.addData("Hive gate observation", hiveTags.getStatus());
+        telemetry.addData("BLUE Flower IDs (38-41)", hiveTags.getFlowerTags());
+        telemetry.addData("BLUE Garden IDs (42-45)", hiveTags.getGardenTags());
+        telemetry.addData("X", follower.pose().x());
+        telemetry.addData("Y", follower.pose().y());
+        telemetry.addData("Heading (deg)", Math.toDegrees(follower.pose().heading()));
+        telemetry.addData("Intake arm target (deg)", arm.getCommandedDegrees());
+        telemetry.update();
+    }
+
+    @Override public void onStop() {
+        autoRunning = false;
+        if (routine != null) routine.cancel();
+        if (deadlinePark != null) deadlinePark.cancel();
+        if (hiveTags != null) hiveTags.stop();
+        shooting.stop();
+        if (follower != null) follower.stop();
+    }
+}

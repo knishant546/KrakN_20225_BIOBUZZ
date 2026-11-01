@@ -1,4 +1,15 @@
-package org.firstinspires.ftc.teamcode.AutoAppl;
+/* ============================================================================
+ * Class: HiveAutoConfig
+ * What it does:
+ *   Holds route and mechanism configuration for the older hive autonomous drafts.
+ * Applications using it:
+ *   AutoBlueD1 [disabled draft]
+ *   AutoBlueD6 [disabled draft]
+ *   AutoRedC1 [disabled draft]
+ *   AutoRedC6 [disabled draft]
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.AutoAppl.test;
 
 /** Shared draft settings. None of the poses or shooting values are field calibration. */
 public final class HiveAutoConfig {

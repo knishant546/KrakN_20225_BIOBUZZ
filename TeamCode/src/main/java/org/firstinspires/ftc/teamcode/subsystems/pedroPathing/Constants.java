@@ -1,3 +1,25 @@
+/* ============================================================================
+ * Class: Constants
+ * What it does:
+ *   Defines shared Pedro follower, mecanum drivetrain, and Pinpoint localization configuration.
+ * Applications using it:
+ *   AutoBlueD1 [disabled draft]
+ *   AutoBlueD6 [disabled draft]
+ *   AutoBluePark
+ *   AutoRedBack [excluded from build]
+ *   AutoRedC1 [disabled draft]
+ *   AutoRedC6 [disabled draft]
+ *   BioBuzzTeleop
+ *   BLUE_AutoFlower
+ *   BLUE_AutoGarden
+ *   DisplayCoorindate
+ *   KKN_Limelight
+ *   KKN_TeleOP
+ *   PedroMecanumTest
+ *   RED_AutoFlower
+ *   RED_AutoGarden
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
 package org.firstinspires.ftc.teamcode.subsystems.pedroPathing;
 
 import com.pedropathing.algorithm.Foresight;
@@ -110,7 +132,7 @@ public class Constants {
      *   3. Run Foresight AutoTune
      *   4. Replace this whole ForesightConfig with the generated one
      *
-     * maxPathSpeed is temporarily limited to 0.25 while migrating.
+     * maxPathSpeed is currently limited to 0.65.
      */
     public static final ForesightConfig foresightConfig = new ForesightConfig(
             c -> {
@@ -191,7 +213,7 @@ public class Constants {
 
                 // Temporary migration speed limit.
                 // Remove/change after AutoTune.
-                c.maxPathSpeed.set(0.60);
+                c.maxPathSpeed.set(0.80);
             }
     );
 
@@ -209,7 +231,7 @@ public class Constants {
 
 
     /*
-     * Compatibility alias so your already-migrated AutoTEST.java can
+     * Compatibility alias so your already-migrated RED_AutoGarden.java can
      * continue calling Constants.createFollower(hardwareMap).
      *
      * New code can use create().

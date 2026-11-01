@@ -1,4 +1,11 @@
-package org.firstinspires.ftc.teamcode.AutoAppl;
+/* ============================================================================
+ * Class: AutoRedC1
+ * What it does:
+ *   Selects its named alliance/start route in HiveAutoBase; retained as a disabled autonomous draft.
+ * Applications using it:
+ *   AutoRedC1 (disabled).
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.AutoAppl.test;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;

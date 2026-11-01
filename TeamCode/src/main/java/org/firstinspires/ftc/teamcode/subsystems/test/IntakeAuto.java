@@ -1,4 +1,13 @@
-package org.firstinspires.ftc.teamcode.subsystems;
+/* ============================================================================
+ * Class: IntakeAuto
+ * What it does:
+ *   Provides legacy NextFTC intake motor commands for older applications.
+ * Applications using it:
+ *   AutoRedBack [excluded from build]
+ *   DecodeTeleop [excluded from build]
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 

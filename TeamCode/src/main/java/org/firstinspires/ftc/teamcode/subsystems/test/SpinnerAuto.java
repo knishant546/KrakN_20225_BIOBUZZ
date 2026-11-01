@@ -1,8 +1,15 @@
-package org.firstinspires.ftc.teamcode.subsystems;
+/* ============================================================================
+ * Class: SpinnerAuto
+ * What it does:
+ *   Provides the older automatic spinner motor controller with color-sensor integration.
+ * Applications using it:
+ *   No application references found in current teamcode sources.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 
-import org.firstinspires.ftc.teamcode.subsystems.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

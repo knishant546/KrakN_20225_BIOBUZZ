@@ -1,4 +1,11 @@
-package org.firstinspires.ftc.teamcode.subsystems.pedroPathing;
+/* ============================================================================
+ * Class: PedroMecanumTest
+ * What it does:
+ *   Runs a low-power joystick test of the Pedro mecanum drivetrain.
+ * Applications using it:
+ *   PedroMecanumTest (Driver Station entry point).
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test.pedroPathing;
 
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.revhub.drivetrains.Mecanum;

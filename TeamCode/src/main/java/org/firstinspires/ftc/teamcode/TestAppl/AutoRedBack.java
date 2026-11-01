@@ -1,3 +1,10 @@
+/* ============================================================================
+ * Class: AutoRedBack
+ * What it does:
+ *   Retains the imported legacy RED autonomous routine; disabled and excluded from compilation.
+ * Applications using it:
+ *   AutoRedBack (disabled; excluded from build).
+ * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TestAppl;
 
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
@@ -8,11 +15,11 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
-import org.firstinspires.ftc.teamcode.subsystems.ColorSensor;
-import org.firstinspires.ftc.teamcode.subsystems.IntakeAuto;
-import org.firstinspires.ftc.teamcode.subsystems.Lift;
-import org.firstinspires.ftc.teamcode.subsystems.ShooterNew;
-import org.firstinspires.ftc.teamcode.subsystems.Spinner;
+import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.test.IntakeAuto;
+import org.firstinspires.ftc.teamcode.subsystems.test.Lift;
+import org.firstinspires.ftc.teamcode.subsystems.test.ShooterNew;
+import org.firstinspires.ftc.teamcode.subsystems.test.Spinner;
 import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.delays.Delay;

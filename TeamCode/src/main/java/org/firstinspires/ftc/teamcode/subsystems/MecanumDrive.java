@@ -1,3 +1,13 @@
+/* ============================================================================
+ * Class: MecanumDrive
+ * What it does:
+ *   Mixes joystick commands into four wheel powers; supports robot-relative and field-relative drive.
+ * Applications using it:
+ *   BioBuzzTeleop
+ *   KKN_Limelight
+ *   KKN_TeleOP
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
@@ -84,8 +94,8 @@ public class MecanumDrive {
         double frontRightPower = forward - strafe - rotate;
         double backRightPower = forward + strafe - rotate;
 
-        double maxPower = 0.3;
-        double maxSpeed = 0.3;
+        double maxPower = 0.25;
+        double maxSpeed = 0.25;
 
         maxPower = Math.max(maxPower, Math.abs(frontLeftPower));
         maxPower = Math.max(maxPower, Math.abs(backLeftPower));

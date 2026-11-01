@@ -1,4 +1,22 @@
-package org.firstinspires.ftc.teamcode.subsystems;
+/* ============================================================================
+ * Class: Shooter
+ * What it does:
+ *   Retains the older NextFTC ControlSystem-based shooter controller.
+ * Applications using it:
+ *   AutoBlueD1 [disabled draft]
+ *   AutoBlueD6 [disabled draft]
+ *   AutoRedBack [excluded from build]
+ *   AutoRedC1 [disabled draft]
+ *   AutoRedC6 [disabled draft]
+ *   BioBuzzTeleop
+ *   BLUE_AutoFlower
+ *   BLUE_AutoGarden
+ *   DecodeTeleop [excluded from build]
+ *   RED_AutoFlower
+ *   RED_AutoGarden
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.hardware.DcMotor;

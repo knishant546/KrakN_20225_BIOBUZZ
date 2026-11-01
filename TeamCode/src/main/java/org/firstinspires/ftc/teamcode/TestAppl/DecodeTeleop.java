@@ -1,3 +1,10 @@
+/* ============================================================================
+ * Class: DecodeTeleop
+ * What it does:
+ *   Retains the imported legacy mechanism TeleOp; disabled and excluded from compilation.
+ * Applications using it:
+ *   DecodeTeleop (disabled; excluded from build).
+ * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TestAppl;
 
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
@@ -6,12 +13,12 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
-import org.firstinspires.ftc.teamcode.subsystems.ColorSensor;
-import org.firstinspires.ftc.teamcode.subsystems.DriveTrain;
-import org.firstinspires.ftc.teamcode.subsystems.IntakeAuto;
-import org.firstinspires.ftc.teamcode.subsystems.Lift;
-import org.firstinspires.ftc.teamcode.subsystems.ShooterNew;
-import org.firstinspires.ftc.teamcode.subsystems.Spinner;
+import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.test.DriveTrain;
+import org.firstinspires.ftc.teamcode.subsystems.test.IntakeAuto;
+import org.firstinspires.ftc.teamcode.subsystems.test.Lift;
+import org.firstinspires.ftc.teamcode.subsystems.test.ShooterNew;
+import org.firstinspires.ftc.teamcode.subsystems.test.Spinner;
 
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.utility.InstantCommand;

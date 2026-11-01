@@ -1,4 +1,15 @@
-package org.firstinspires.ftc.teamcode.AutoAppl;
+/* ============================================================================
+ * Class: HiveAutoLogic
+ * What it does:
+ *   Implements draft shooting phases, hive checks, feeding, settling, and fault handling.
+ * Applications using it:
+ *   AutoBlueD1 [disabled draft]
+ *   AutoBlueD6 [disabled draft]
+ *   AutoRedC1 [disabled draft]
+ *   AutoRedC6 [disabled draft]
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.AutoAppl.test;
 
 /** Hardware-independent single-shot interlock: never queue an unchecked second shot. */
 public final class HiveAutoLogic {

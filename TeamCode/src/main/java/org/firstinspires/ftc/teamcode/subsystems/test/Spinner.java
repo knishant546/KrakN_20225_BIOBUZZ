@@ -1,9 +1,22 @@
-package org.firstinspires.ftc.teamcode.subsystems;
+/* ============================================================================
+ * Class: Spinner
+ * What it does:
+ *   Provides legacy spinner motor commands and optional color-sensor integration.
+ * Applications using it:
+ *   AutoBlueD1 [disabled draft]
+ *   AutoBlueD6 [disabled draft]
+ *   AutoRedBack [excluded from build]
+ *   AutoRedC1 [disabled draft]
+ *   AutoRedC6 [disabled draft]
+ *   DecodeTeleop [excluded from build]
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 
-import org.firstinspires.ftc.teamcode.subsystems.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
 //import org.firstinspires.ftc.teamcode.Utils;
 
 import java.util.concurrent.atomic.AtomicBoolean;

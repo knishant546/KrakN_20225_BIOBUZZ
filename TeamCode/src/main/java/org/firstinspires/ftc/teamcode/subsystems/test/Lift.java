@@ -1,4 +1,13 @@
-package org.firstinspires.ftc.teamcode.subsystems;
+/* ============================================================================
+ * Class: Lift
+ * What it does:
+ *   Controls the legacy two-servo lift with NextFTC position commands.
+ * Applications using it:
+ *   AutoRedBack [excluded from build]
+ *   DecodeTeleop [excluded from build]
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test;
 import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
 
 import com.qualcomm.robotcore.hardware.Servo;

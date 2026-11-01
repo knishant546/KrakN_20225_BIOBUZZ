@@ -1,4 +1,13 @@
-package org.firstinspires.ftc.teamcode.subsystems;
+/* ============================================================================
+ * Class: DriveTrain
+ * What it does:
+ *   Provides the legacy NextFTC mecanum driver-controlled command and drivetrain hardware.
+ * Applications using it:
+ *   DecodeTeleop [excluded from build]
+ *   PedroMecanumTest
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test;
 
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.ftc.Gamepads;

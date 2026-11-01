@@ -1,4 +1,11 @@
-package org.firstinspires.ftc.teamcode.subsystems.pedroPathing;
+/* ============================================================================
+ * Class: Tuning
+ * What it does:
+ *   Placeholder documenting Pedro 3 tuning migration; does not register a runnable tuning OpMode.
+ * Applications using it:
+ *   No application references found in current teamcode sources.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test.pedroPathing;
 
 /**
  * Pedro Pathing 3 migration placeholder.

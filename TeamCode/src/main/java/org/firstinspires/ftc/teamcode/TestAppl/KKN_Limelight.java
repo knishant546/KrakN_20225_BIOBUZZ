@@ -1,3 +1,10 @@
+/* ============================================================================
+ * Class: KKN_Limelight
+ * What it does:
+ *   Runs the older Limelight and drivetrain test with vision telemetry and CSV logging support.
+ * Applications using it:
+ *   KKN_Limelight (Driver Station entry point).
+ * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TestAppl;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -5,9 +12,11 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 
-import org.firstinspires.ftc.teamcode.subsystems.ColorSensor;
-import org.firstinspires.ftc.teamcode.subsystems.LimelightTracker;
+import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.test.LimelightTracker;
 import org.firstinspires.ftc.teamcode.subsystems.MecanumDrive;
+import org.firstinspires.ftc.teamcode.subsystems.test.AprilTagCsvLogger;
+import java.io.File;
 
 @TeleOp(name="Krak_N_Auto-2.1")
 public class KKN_Limelight extends OpMode {
@@ -25,6 +34,8 @@ public class KKN_Limelight extends OpMode {
     ColorSensor colorSensor;
 
     LimelightTracker limelightTracker;
+    private final AprilTagCsvLogger tagLogger = new AprilTagCsvLogger();
+    private boolean lastLeftBumper,lastRightBumper;
 
     @Override
     public void init() {
@@ -57,6 +68,7 @@ public class KKN_Limelight extends OpMode {
         telemetry.addLine("Hold Y = yellow telemetry only, motors stopped");
         telemetry.addLine("B = follow RED NECTAR (pipeline 8)");
         telemetry.addLine("X = AprilTag pose telemetry + manual drive");
+        telemetry.addLine("CSV: LB=start moving UP, RB=start moving DOWN; D-pad UP/DOWN=end and save");
         telemetry.addData("AprilTag pipeline", LimelightTracker.APRILTAG_PIPELINE);
         telemetry.addLine("Release A/B = manual drive");
         telemetry.update();
@@ -141,6 +153,9 @@ public class KKN_Limelight extends OpMode {
                 " ****** KrakN STARTING UP ****** ");
 
         limelightTracker.start();
+        limelightTracker.setAprilTagLogger(tagLogger);
+        lastLeftBumper=gamepad1.left_bumper;
+        lastRightBumper=gamepad1.right_bumper;
     }
 
     @Override
@@ -150,7 +165,32 @@ public class KKN_Limelight extends OpMode {
          * This method decides whether the drivetrain is under
          * Limelight control or gamepad control.
          */
-        simpleLimelightFollowTest();
+        // One CSV per transition. Bumper edges prevent reopening while held.
+        boolean startUp=gamepad1.left_bumper && !lastLeftBumper;
+        boolean startDown=gamepad1.right_bumper && !lastRightBumper;
+        lastLeftBumper=gamepad1.left_bumper;
+        lastRightBumper=gamepad1.right_bumper;
+        if (!tagLogger.isRecording() && !gamepad1.dpad_up && !gamepad1.dpad_down
+                && (startUp || startDown)) {
+            tagLogger.open(new File("/sdcard/FIRST/logs/apriltag"));
+            tagLogger.mark(startUp ? "MOVING_UP" : "MOVING_DOWN");
+            limelightTracker.setTargetType(LimelightTracker.TargetType.APRILTAG);
+        }
+        if (tagLogger.isRecording()) {
+            // Keep the tag pipeline selected throughout capture; Y still stops driving.
+            if (gamepad1.y) driveTest.drive(0,0,0);
+            else simpleMecanumWheelTest();
+            if (gamepad1.dpad_up) tagLogger.setLabel("UP");
+            else if (gamepad1.dpad_down) tagLogger.setLabel("DOWN");
+            limelightTracker.update();
+            if (gamepad1.dpad_up || gamepad1.dpad_down) {
+                tagLogger.mark(gamepad1.dpad_up ? "UP" : "DOWN");
+                tagLogger.close(); // Flush immediately; leave the OpMode running.
+            }
+        } else simpleLimelightFollowTest();
+        telemetry.addData("CSV", tagLogger.getStatus());
+        telemetry.addData("CSV file", tagLogger.getPath());
+        telemetry.addData("Hive label (manual)", tagLogger.getLabel());
 
         // Existing color-sensor test can continue at the same time.
        // simpleColorDetection();
@@ -161,6 +201,7 @@ public class KKN_Limelight extends OpMode {
 
     @Override
     public void stop() {
+        tagLogger.close(); // Flush buffered samples even before shutting down hardware.
         telemetry.addData(
                 "MACNM",
                 " ****** KrakN SHUTTING DOWN ****** ");

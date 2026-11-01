@@ -1,0 +1,2 @@
+host_unix_ms,elapsed_ms,label,status,frame_timestamp,pipeline,age_ms,tag_id,x_m,y_m,z_m,roll_deg,pitch_deg,yaw_deg,tx_deg,ty_deg
+1792886806772,0,INIT_FILE_WRITE_TEST,MANUAL_MARKER,,,,,,,,,,,,

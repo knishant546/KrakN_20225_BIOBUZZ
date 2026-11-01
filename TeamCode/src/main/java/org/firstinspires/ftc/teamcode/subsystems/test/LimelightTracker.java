@@ -1,4 +1,12 @@
-package org.firstinspires.ftc.teamcode.subsystems;
+/* ============================================================================
+ * Class: LimelightTracker
+ * What it does:
+ *   Provides legacy Limelight tracking/AprilTag telemetry and logging APIs; pollen tracking is disabled.
+ * Applications using it:
+ *   KKN_Limelight
+ *   Includes indirect/source dependencies; optional features may be inactive.
+ * ============================================================================ */
+package org.firstinspires.ftc.teamcode.subsystems.test;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
@@ -17,31 +25,21 @@ import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import java.util.List;
 
 /**
- * Simple Limelight helper for BIOBUZZ ball following.
- *
- * Limelight pipeline setup expected:
- *   Pipeline 1 = AprilTag pipeline with Full 3D Targeting enabled
- *   Pipeline 2 = Yellow POLLEN neural detector (class label "pollen")
- *   Pipeline 8 = Red NECTAR color pipeline
- *
- * The class:
- *   1. Reads the active Limelight detector or color pipeline.
- *   2. Chooses the largest qualifying pollen detection or red color blob.
- *   3. Uses tx to strafe left/right toward the ball.
- *   4. Drives forward slowly while the ball is not yet close.
- *
- * NOTE: YELLOW_STOP_AREA and RED_STOP_AREA are STARTING VALUES ONLY.
- * Calibrate them on your robot using telemetry.
+ * BIOBUZZ Limelight helper temporarily locked to AprilTag pipeline 1.
+ * Enable Full 3D Targeting on the camera. Hive classification now lives in
+ * ApriltagDetector. Old ball-follow APIs remain source-compatible,
+ * but target selection is forced to APRILTAG and followTarget stops drivetrain.
+ * Calibration is required: Limelight tag camera roll is not FTC cluster ftcPose.roll.
  */
 public class LimelightTracker {
 
     public enum TargetType {
-        YELLOW_POLLEN,
+        YELLOW_POLLEN, // Compatibility name only; detection is commented out.
         RED_NECTAR,
         APRILTAG
     }
 
-    private static final int YELLOW_PIPELINE = 2;
+    // private static final int YELLOW_PIPELINE = 2;
     private static final int RED_PIPELINE = 8;
     // Set this to the AprilTag pipeline configured in the Limelight web UI.
     public static final int APRILTAG_PIPELINE = 1;
@@ -54,13 +52,13 @@ public class LimelightTracker {
     private static final double ALIGNMENT_DEADBAND_DEG = 2.0;
     private static final double FORWARD_ALIGNMENT_LIMIT_DEG = 12.0;
     private static final double MIN_VALID_AREA = 0.15;
-    private static final double MIN_POLLEN_CONFIDENCE = 0.51;
-    private static final String POLLEN_CLASS_NAME = "pollen";
+    // private static final double MIN_POLLEN_CONFIDENCE = 0.51;
+    // private static final String POLLEN_CLASS_NAME = "pollen";
     // This camera's LLOS 2024.10.1 detector reports fractional area:
     // measured detector ta ~0.006413 vs overall ta 0.6413 percent.
     // SDK passes that value through despite documenting percent units.
     // Recheck against overall ta after firmware changes; do not auto-scale by size.
-    private static final double DETECTOR_AREA_TO_PERCENT = 100.0;
+    // private static final double DETECTOR_AREA_TO_PERCENT = 100.0;
 
     /*
      * Starting guesses only.
@@ -81,8 +79,11 @@ public class LimelightTracker {
 
     private final Limelight3A limelight;
     private final Telemetry telemetry;
+    private AprilTagCsvLogger aprilTagLogger;
 
-    private TargetType targetType = TargetType.YELLOW_POLLEN;
+    public void setAprilTagLogger(AprilTagCsvLogger logger) { aprilTagLogger=logger; }
+
+    private TargetType targetType = TargetType.APRILTAG;
     private int activePipeline = -1;
 
     private boolean targetVisible = false;
@@ -129,7 +130,7 @@ public class LimelightTracker {
         // 50 Hz is plenty for a first drivetrain-follow test.
         limelight.setPollRateHz(50);
 
-        setTargetType(TargetType.YELLOW_POLLEN);
+        setTargetType(TargetType.APRILTAG);
     }
 
     public void start() {
@@ -153,11 +154,10 @@ public class LimelightTracker {
             return;
         }
 
-        targetType = newTargetType;
+        // Temporary AprilTag-only operation: legacy A/B callers cannot switch pipelines.
+        targetType = TargetType.APRILTAG;
 
-        int wantedPipeline = targetType == TargetType.APRILTAG
-                ? APRILTAG_PIPELINE
-                : (targetType == TargetType.YELLOW_POLLEN ? YELLOW_PIPELINE : RED_PIPELINE);
+        int wantedPipeline = APRILTAG_PIPELINE;
 
         // Avoid requesting the same pipeline switch every OpMode loop.
         if (wantedPipeline != activePipeline) {
@@ -183,6 +183,8 @@ public class LimelightTracker {
         area = 0.0;
 
         LLResult result = getFreshResult();
+        if (targetType == TargetType.APRILTAG && aprilTagLogger != null)
+            aprilTagLogger.record(result);
 
         if (result == null) {
             addTelemetry();
@@ -195,11 +197,12 @@ public class LimelightTracker {
             return targetVisible;
         }
 
-        if (targetType == TargetType.YELLOW_POLLEN) {
-            targetVisible = updatePollenDetector(result);
-            addTelemetry();
-            return targetVisible;
-        }
+        // Pollen detection disabled while testing AprilTags only.
+        // if (targetType == TargetType.YELLOW_POLLEN) {
+        //     targetVisible = updatePollenDetector(result);
+        //     addTelemetry();
+        //     return targetVisible;
+        // }
 
         List<LLResultTypes.ColorResult> targets = result.getColorResults();
         telemetry.addData("LL Result ta (%)", "%.4f", result.getTa());
@@ -249,59 +252,61 @@ public class LimelightTracker {
         return true;
     }
 
-    private boolean updatePollenDetector(LLResult result) {
-        List<LLResultTypes.DetectorResult> targets = result.getDetectorResults();
-        telemetry.addData("LL Result ta (%)", "%.4f", result.getTa());
-        telemetry.addData("LL Detector Count", targets == null ? 0 : targets.size());
-        telemetry.addData("LL Detector Cutoffs", "confidence >= %.2f, area >= %.4f%%",
-                MIN_POLLEN_CONFIDENCE, MIN_VALID_AREA);
-        if (targets == null || targets.isEmpty()) {
-            telemetry.addData("LL Detector Selection", "No detector results - check pipeline 2 model");
-            return false;
-        }
-
-        LLResultTypes.DetectorResult best = null;
-        int bestIndex = -1;
-        for (int i = 0; i < targets.size(); i++) {
-            LLResultTypes.DetectorResult candidate = targets.get(i);
-            String label = candidate.getClassName();
-            double confidence = candidate.getConfidence();
-            double rawDetectorArea = candidate.getTargetArea();
-            double candidateArea = rawDetectorArea * DETECTOR_AREA_TO_PERCENT;
-            String reason;
-            if (label == null || !POLLEN_CLASS_NAME.equalsIgnoreCase(label.trim())) {
-                reason = "REJECT class";
-            } else if (!Double.isFinite(confidence) || confidence < MIN_POLLEN_CONFIDENCE) {
-                reason = "REJECT confidence";
-            } else if (!Double.isFinite(candidateArea) || candidateArea < MIN_VALID_AREA) {
-                reason = "REJECT area";
-            } else if (!Double.isFinite(candidate.getTargetXDegrees())
-                    || !Double.isFinite(candidate.getTargetYDegrees())) {
-                reason = "REJECT angles";
-            } else {
-                reason = "PASS";
-                if (best == null || rawDetectorArea > best.getTargetArea()) {
-                    best = candidate;
-                    bestIndex = i;
-                }
-            }
-            telemetry.addData("LL Detector " + i,
-                    "%s | conf %.3f | raw %.6f | %.4f%% | %s",
-                    label, confidence, rawDetectorArea, candidateArea, reason);
-        }
-        if (best == null) {
-            telemetry.addData("LL Detector Selection", "No pollen passes cutoffs");
-            return false;
-        }
-        tx = best.getTargetXDegrees();
-        ty = best.getTargetYDegrees();
-        area = best.getTargetArea() * DETECTOR_AREA_TO_PERCENT;
-        updateAreaFilter(result.getTimestamp());
-        telemetry.addData("LL Detector Selection", "Candidate %d: %s", bestIndex, best.getClassName());
-        telemetry.addData("LL Pollen Confidence", "%.3f", best.getConfidence());
-        return true;
-    }
-
+    // POLLEN DETECTION DISABLED: retained below as comments for later restoration.
+//     private boolean updatePollenDetector(LLResult result) {
+//         List<LLResultTypes.DetectorResult> targets = result.getDetectorResults();
+//         telemetry.addData("LL Result ta (%)", "%.4f", result.getTa());
+//         telemetry.addData("LL Detector Count", targets == null ? 0 : targets.size());
+//         telemetry.addData("LL Detector Cutoffs", "confidence >= %.2f, area >= %.4f%%",
+//                 MIN_POLLEN_CONFIDENCE, MIN_VALID_AREA);
+//         if (targets == null || targets.isEmpty()) {
+//             telemetry.addData("LL Detector Selection", "No detector results - check pipeline 2 model");
+//             return false;
+//         }
+// 
+//         LLResultTypes.DetectorResult best = null;
+//         int bestIndex = -1;
+//         for (int i = 0; i < targets.size(); i++) {
+//             LLResultTypes.DetectorResult candidate = targets.get(i);
+//             String label = candidate.getClassName();
+//             double confidence = candidate.getConfidence();
+//             double rawDetectorArea = candidate.getTargetArea();
+//             double candidateArea = rawDetectorArea * DETECTOR_AREA_TO_PERCENT;
+//             String reason;
+//             if (label == null || !POLLEN_CLASS_NAME.equalsIgnoreCase(label.trim())) {
+//                 reason = "REJECT class";
+//             } else if (!Double.isFinite(confidence) || confidence < MIN_POLLEN_CONFIDENCE) {
+//                 reason = "REJECT confidence";
+//             } else if (!Double.isFinite(candidateArea) || candidateArea < MIN_VALID_AREA) {
+//                 reason = "REJECT area";
+//             } else if (!Double.isFinite(candidate.getTargetXDegrees())
+//                     || !Double.isFinite(candidate.getTargetYDegrees())) {
+//                 reason = "REJECT angles";
+//             } else {
+//                 reason = "PASS";
+//                 if (best == null || rawDetectorArea > best.getTargetArea()) {
+//                     best = candidate;
+//                     bestIndex = i;
+//                 }
+//             }
+//             telemetry.addData("LL Detector " + i,
+//                     "%s | conf %.3f | raw %.6f | %.4f%% | %s",
+//                     label, confidence, rawDetectorArea, candidateArea, reason);
+//         }
+//         if (best == null) {
+//             telemetry.addData("LL Detector Selection", "No pollen passes cutoffs");
+//             return false;
+//         }
+//         tx = best.getTargetXDegrees();
+//         ty = best.getTargetYDegrees();
+//         area = best.getTargetArea() * DETECTOR_AREA_TO_PERCENT;
+//         updateAreaFilter(result.getTimestamp());
+//         telemetry.addData("LL Detector Selection", "Candidate %d: %s", bestIndex, best.getClassName());
+//         telemetry.addData("LL Pollen Confidence", "%.3f", best.getConfidence());
+//         return true;
+//     }
+// 
+// 
     private LLResult getFreshResult() {
         LLResult result = limelight.getLatestResult();
         // Diagnostic values only: a rejected frame must never command motion.
