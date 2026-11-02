@@ -8,6 +8,7 @@
 package org.firstinspires.ftc.teamcode.AutoAppl;
 
 import static com.pedropathing.api.Paths.line;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
@@ -41,9 +42,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
     private final IntakeArmSingleServo arm = new IntakeArmSingleServo();
     private Follower follower;
     private HiveUpTagIDLogic hiveTags;
-    private static final double HIVE_WAIT_TIMEOUT_SECONDS = 10.0;
     private long hiveWaitStartedAt;
-    private static final double HIVE_SETTLE_SECONDS = 3.0;
     private long hiveDetectedAt;
     private boolean hiveDetected;
     private boolean hiveGateDone;
@@ -51,11 +50,8 @@ public class RED_AutoFlower extends NextFTCOpMode {
     private Command routine, deadlinePark;
     private long autoStartedAt;
     private boolean autoRunning, parkingStarted;
-    private static final double PARK_DEADLINE_SECONDS = 24.0;
-    private static final double AUTO_LIMIT_SECONDS = 30.0;
     private String stage = "Ready";
     // Test only: stop the backward leg after one second, regardless of follower busy state.
-    private static final double BACKWARD_TEST_SECONDS = 1.0;
     private long backwardStartedAt;
 
     public RED_AutoFlower() {
@@ -64,13 +60,13 @@ public class RED_AutoFlower extends NextFTCOpMode {
 
     /** Define start-relative waypoints during INIT, matching RED_AutoGarden's structure. */
     private void buildPath() {
-        startPose = new Pose(0, 0, 0);
-        flwrPos1 = new Pose(-1, 0, 0);
-        straightEnd = new Pose(-10, 0, 0);
-        strafeEnd = new Pose(-10, 10, 0);
-        flwrPos2 = new Pose(-5, 10, 0); // Back 5 inches means +X.
-        exitStraight = new Pose(-11, 10, 0); // Straight 6 more inches in -X.
-        finalPose = new Pose(-11, 42, 0); // Another 32 inches in +Y.
+        startPose = START.pose();
+        flwrPos1 = FLOWER_SHOOT_1.pose();
+        straightEnd = FLOWER_STRAIGHT_END.pose();
+        strafeEnd = FLOWER_STRAFE_END.pose();
+        flwrPos2 = FLOWER_SHOOT_2.pose();
+        exitStraight = FLOWER_EXIT_STRAIGHT.pose();
+        finalPose = FLOWER_PARK.pose();
     }
 
     private Command buildMoveCommand(Pose from, Pose to, String label) {
@@ -86,7 +82,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
         Path path = line(strafeEnd, flwrPos2).linear(strafeEnd, flwrPos2);
         return new LambdaCommand("Timed backward test")
                 .setStart(() -> {
-                    stage = "Back 5 inches: one-second timed test";
+                    stage = "Backward timed test: " + BACKWARD_TEST_SECONDS + " seconds";
                     backwardStartedAt = System.nanoTime();
                     follower.follow(path);
                 })
@@ -107,7 +103,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
                     hiveWaitStartedAt = System.nanoTime();
                     hiveGateDone = false;
                     hiveDetected = false;
-                    hiveGateResult = "Waiting (up to 10 seconds)";
+                    hiveGateResult = "Waiting (up to " + HIVE_WAIT_TIMEOUT_SECONDS + " seconds)";
                     stage = "FlwrPos1: checking hive tags";
                 })
                 .setUpdate(() -> {
@@ -123,7 +119,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
                         double remaining = HIVE_SETTLE_SECONDS - (now - hiveDetectedAt) / 1e9;
                         hiveGateResult = remaining > 0
                                 ? String.format("Flower count >=2; settling %.1f s", remaining)
-                                : "Flower count >=2 maintained for 3 seconds";
+                                : "Flower count >=2 maintained for " + HIVE_SETTLE_SECONDS + " seconds";
                         hiveGateDone = remaining <= 0;
                     } else {
                         hiveDetected = false;
@@ -131,7 +127,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
                     }
                     // Preserve the user's unconditional fallback at the overall ten-second limit.
                     if (!hiveGateDone && (now - hiveWaitStartedAt) / 1e9 >= HIVE_WAIT_TIMEOUT_SECONDS) {
-                        hiveGateResult = "10-second timeout: shooting WITHOUT UP confirmation";
+                        hiveGateResult = HIVE_WAIT_TIMEOUT_SECONDS + "-second timeout: shooting WITHOUT UP confirmation";
                         hiveGateDone = true;
                     }
                 })
@@ -158,14 +154,14 @@ public class RED_AutoFlower extends NextFTCOpMode {
             shooting.stop();
             hiveTags.stop();
             follower.stop();
-            stage = "30 seconds: all motion stopped";
+            stage = AUTO_LIMIT_SECONDS + " seconds: all motion stopped";
         } else if (elapsed >= PARK_DEADLINE_SECONDS && !parkingStarted) {
             if (routine != null) routine.cancel();
             follower.stop();
             prepareParking();
             // As in Garden, this direct recovery route needs field clearance validation.
             deadlinePark = buildMoveCommand(follower.pose(), finalPose,
-                    "24-second deadline: direct parking from current pose");
+                    PARK_DEADLINE_SECONDS + "-second deadline: direct parking from current pose");
             deadlinePark.schedule();
         }
     }
@@ -174,23 +170,23 @@ public class RED_AutoFlower extends NextFTCOpMode {
         return new SequentialGroup(
                 buildMoveCommand(startPose, flwrPos1, "Move straight 1 inch to FlwrPos1"),
                 buildHiveWaitCommand(),
-                stage("FlwrPos1: shoot at 60% speed"),
+                stage("FlwrPos1: shoot at " + (SHOOTER_SPEED_FRACTION * 100) + "% speed"),
                 // Intake + shooter start together; feeder at 1 s, then 4 s feeding.
-                shooting.command(AutoShootSequence.SHOOTER_SPEED_FRACTION, 5.0),
+                shooting.command(SHOOTER_SPEED_FRACTION, FLOWER_FIRST_SHOOT_SECONDS),
                 buildMoveCommand(flwrPos1, straightEnd, "Move straight 9 more inches"),
                 buildMoveCommand(straightEnd, strafeEnd, "Strafe 10 inches opposite RED_AutoGarden"),
-                stage("Arm down to " + IntakeArmSingleServo.DOWN_DEGREES + " degrees; wait 1 second"),
+                stage("Arm down to " + IntakeArmSingleServo.DOWN_DEGREES + " degrees; wait " + FLOWER_ARM_PAUSE_SECONDS + " seconds"),
                 // Use the shared down-position setting; retain the separate intermediate preset.
                 new InstantCommand(() -> arm.liftDown()),
-                new Delay(1),
+                new Delay(FLOWER_ARM_PAUSE_SECONDS),
                 // To test normal completion, uncomment the next call and comment out the timed call.
                 // buildMoveCommand(strafeEnd, flwrPos2, "Back 5 inches to FlwrPos2"),
                 buildTimedBackwardCommand(),
-                stage("FlwrPos2: wait 2 seconds"),
-                new Delay(2),
-                stage("FlwrPos2: shoot at 60% speed"),
+                stage("FlwrPos2: wait " + FLOWER_SECOND_POSITION_PAUSE_SECONDS + " seconds"),
+                new Delay(FLOWER_SECOND_POSITION_PAUSE_SECONDS),
+                stage("FlwrPos2: shoot at " + (SHOOTER_SPEED_FRACTION * 100) + "% speed"),
                 // Same 60% velocity target as TeleOp; 1 s startup plus 5 s feeding.
-                shooting.command(AutoShootSequence.SHOOTER_SPEED_FRACTION, 6.0),
+                shooting.command(SHOOTER_SPEED_FRACTION, FLOWER_SECOND_SHOOT_SECONDS),
                 // Vision is no longer needed: stop polling before driving to parking.
                 new InstantCommand(this::prepareParking),
                 buildMoveCommand(flwrPos2, exitStraight, "Move straight 6 inches after shooting"),

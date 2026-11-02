@@ -58,6 +58,14 @@ public class IntakeArmSingleServo {
     /** Move to the intermediate angle; repeated calls retain the same absolute position. */
     public void liftIntermediate() { setArmPosition(INTERMEDIATE_DEGREE); }
 
+    /** Adjust the current command: negative raises, positive lowers; clamp to preset limits. */
+    public void adjustDegrees(double deltaDegrees) {
+        if (servo == null) throw new IllegalStateException("Call init() first");
+        if (!Double.isFinite(deltaDegrees)) throw new IllegalArgumentException("Angle change must be finite");
+        setArmPosition(Math.max(UP_DEGREES,
+                Math.min(DOWN_DEGREES, commandedArmDegrees + deltaDegrees)));
+    }
+
     private void setArmPosition(double armDegrees) {
         if (servo == null) throw new IllegalStateException("Call IntakeArmSingleServo.init() first");
         double servoDegrees = FLOOR_OFFSET_DEGREES + armDegrees;

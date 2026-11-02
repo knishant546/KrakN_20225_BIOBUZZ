@@ -12,17 +12,14 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.utility.LambdaCommand;
 
 /** Timed autonomous shooting using the same hardware as BioBuzzTeleop. */
 public class AutoShootSequence {
-    public static final double INTAKE_POWER = 1.00;
     // Shooter fraction now scales encoder velocity; intake/feeder remain power-controlled.
-    public static final double SHOOTER_SPEED_FRACTION = 0.60;
-    public static final double FEEDER_DELAY_SECONDS = 1.0;
     // Total duration from sequence start, including the initial one-second spin-up.
-    public static final double TOTAL_SECONDS = 6.0;
     private final Intake intake = new Intake();
     private final InputDCShooter feeder = new InputDCShooter();
     private final ShooterBBTeleop shooter = ShooterBBTeleop.getInstance();
@@ -30,6 +27,7 @@ public class AutoShootSequence {
     private double shotSpeedFraction;
     private double totalSeconds;
     private boolean active;
+    private boolean keepIntakeAfterShot;
     private boolean feeding;
     private boolean initialized;
     private String status = "Not initialized";
@@ -38,7 +36,8 @@ public class AutoShootSequence {
         intake.init(hardwareMap);
         intake.stop();
         shooter.initialize(hardwareMap);
-        feeder.init(hardwareMap); // Uses InputDCShooter's current power/direction settings.
+        feeder.init(hardwareMap);
+        feeder.setPower(FEEDER_POWER); // Auto has its own power setting.
         initialized = true;
         stop();
         status = "Ready / stopped";
@@ -70,23 +69,29 @@ public class AutoShootSequence {
     }
 
     public Command command() {
-        return command(SHOOTER_SPEED_FRACTION, TOTAL_SECONDS);
+        return command(SHOOTER_SPEED_FRACTION, DEFAULT_SHOOT_SECONDS);
     }
 
     /** Duration includes the one-second spin-up; defaults for RED_AutoGarden stay unchanged. */
     public Command command(double speedFraction, double durationSeconds) {
+        return command(speedFraction, durationSeconds, false);
+    }
+
+    /** Keep intake after normal completion only; interruption stops all motors. */
+    public Command command(double speedFraction, double durationSeconds, boolean keepIntake) {
         if (!Double.isFinite(speedFraction) || speedFraction <= 0 || speedFraction > 1
                 || !Double.isFinite(durationSeconds) || durationSeconds <= FEEDER_DELAY_SECONDS)
             throw new IllegalArgumentException("Invalid shooting speed fraction or duration");
         return new LambdaCommand("IntakeShootThenPark")
                 .setStart(() -> {
+                    keepIntakeAfterShot = keepIntake;
                     shotSpeedFraction = speedFraction;
                     totalSeconds = durationSeconds;
                     start();
                 })
                 .setUpdate(this::update)
                 .setIsDone(() -> !active)
-                .setStop(interrupted -> stop())
+                .setStop(interrupted -> { if (interrupted || !keepIntake) stop(); else finishShot(); })
                 .requires(this);
     }
 
@@ -106,7 +111,7 @@ public class AutoShootSequence {
         double elapsed = (System.nanoTime() - startedAt) / 1e9;
         // Check completion first so a delayed loop cannot briefly start the feeder after timeout.
         if (elapsed >= totalSeconds) {
-            stop();
+            finishShot();
         } else if (!feeding && elapsed >= FEEDER_DELAY_SECONDS) {
             feeder.start();
             feeding = true;
@@ -114,6 +119,16 @@ public class AutoShootSequence {
         }
     }
 
+    private void finishShot() {
+        if (!keepIntakeAfterShot) { stop(); return; }
+        active = false;
+        feeding = false;
+        feeder.stop();
+        shooter.stopImmediately();
+        // Preserve continuous intake between the second shot and flower collection.
+        intake.start(INTAKE_POWER);
+        status = "Shot complete: intake running, shooter and feeder stopped";
+    }
     /** Stop feeder first, then intake and shooter; also used on OpMode STOP/interruption. */
     public void stop() {
         active = false;

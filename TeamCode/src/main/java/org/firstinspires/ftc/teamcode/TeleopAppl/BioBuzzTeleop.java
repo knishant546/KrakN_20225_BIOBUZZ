@@ -8,6 +8,7 @@
 package org.firstinspires.ftc.teamcode.TeleopAppl;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import static org.firstinspires.ftc.teamcode.config.TeleopConfig.*;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import org.firstinspires.ftc.teamcode.subsystems.MecanumDrive;
@@ -24,11 +25,8 @@ public class BioBuzzTeleop extends OpMode {
     private ShooterBBTeleop shooter;
     private boolean shooterAWasPressed, shooterBWasPressed;
     // Velocity control: start at 60% of 2600 ticks/s, with A/B limited to 0..85%.
-    private static final int MAX_SHOOTER_SPEED_PERCENT = 85;
-    private static final int INITIAL_SHOOTER_SPEED_PERCENT = 60;
-    private static final int INITIAL_INTAKE_POWER_PERCENT = 90;
     private int intakePowerPercent = INITIAL_INTAKE_POWER_PERCENT;
-    private boolean intakeXWasPressed;
+    private boolean intakeXWasPressed, intakeYWasPressed;
     private boolean intakeReverse, intakeReverseXWasPressed;
     // A/B adjust speed by 5 percentage points per press, limited to 0..85%.
     private int selectedShooterSpeedPercent = INITIAL_SHOOTER_SPEED_PERCENT;
@@ -39,7 +37,6 @@ public class BioBuzzTeleop extends OpMode {
     private FeedSequence feedSequence = FeedSequence.IDLE;
     private long sequenceDeadline;
     private boolean teleopStarted;
-    private static final long SEQUENCE_DELAY_NS = 1_000_000_000L;
 
     private void stopShootingImmediately() {
         if (inputDCShooter != null) inputDCShooter.stop();
@@ -48,12 +45,11 @@ public class BioBuzzTeleop extends OpMode {
         feederStatus = "Stopped";
     }
     private String feederStatus = "Ready / stopped";
-    private static final double TURN_DEADBAND = 0.05;
     // Keep below MecanumDrive's 0.3 normalization floor so pure turning stays slower.
-    private static final double MAX_TURN_INPUT = 0.20;
     private MecanumDrive driveTest;
     private Intake intake;
     private IntakeArmSingleServo intakeArm;
+    private boolean armUpWasPressed, armDownWasPressed;
     private boolean intakeRunning, intakeManualStop;
     private DcMotor frontLeft, frontRight, rearLeft, rearRight;
 
@@ -77,9 +73,11 @@ public class BioBuzzTeleop extends OpMode {
         intakeReverse = false;
         intakeReverseXWasPressed = gamepad2.x;
         intakeXWasPressed = gamepad1.x;
+        intakeYWasPressed = gamepad1.y;
         intakeArm = new IntakeArmSingleServo();
         intakeArm.init(hardwareMap); // Commands the configured UP_DEGREES during INIT.
         inputDCShooter = new InputDCShooter(); inputDCShooter.init(hardwareMap);
+        inputDCShooter.setPower(FEEDER_POWER);
         feederStatus = "Ready / stopped";
         feederStartWasPressed = gamepad2.start;
         // MecanumDrive owns motor directions and encoder modes, matching KKN_TEST.
@@ -89,8 +87,8 @@ public class BioBuzzTeleop extends OpMode {
         rearRight = hardwareMap.get(DcMotor.class, "RRDC");
         telemetry.addLine("Ready: left stick drive/strafe, right stick X turn");
         telemetry.addLine("Shooter after Driver Station START: gamepad START sequence, BACK stop sequence, A +5%, B -5% (gamepad 2)");
-        telemetry.addLine("Intake: auto-start on drive; D-pad RIGHT start / LEFT stop (latched); Gamepad 1 X reduces power by 10%; Gamepad 2 X reverses intake");
-        telemetry.addLine("Arm: folded UP; after START use D-pad UP raise / DOWN floor / Y intermediate (125 deg)");
+        telemetry.addLine("Intake: auto-start on drive; D-pad RIGHT start/reset to 90% / LEFT stop (latched); Gamepad 1 X -10 / Y +10 percentage points; Gamepad 2 X reverses intake");
+        telemetry.addLine("Arm: folded UP; after START: gamepad 1 UP/DOWN presets; gamepad 2 UP -5 / DOWN +5 degrees");
         telemetry.addData("Input shooter motor", "Ready / stopped; Gamepad 2 START: shooter then feeder; BACK: feeder then shooter");
     }
 
@@ -109,8 +107,8 @@ public class BioBuzzTeleop extends OpMode {
             // Holding BACK must not continually restart the one-second timer.
             if (feedSequence == FeedSequence.SPINNING_UP || feedSequence == FeedSequence.FEEDING) {
                 feedSequence = FeedSequence.SPINNING_DOWN;
-                sequenceDeadline = now + SEQUENCE_DELAY_NS;
-                feederStatus = "Feeder stopped; shooter stops in 1 second";
+                sequenceDeadline = now + (long) (SHOOTER_STOP_DELAY_SECONDS * 1e9);
+                feederStatus = "Feeder stopped; shooter stops in " + SHOOTER_STOP_DELAY_SECONDS + " seconds";
             }
         } else if (startPressed) {
             if (!teleopStarted) {
@@ -120,8 +118,8 @@ public class BioBuzzTeleop extends OpMode {
             } else if (feedSequence == FeedSequence.IDLE) {
                 shooter.runSpeedFraction(selectedShooterSpeedPercent / 100.0);
                 feedSequence = FeedSequence.SPINNING_UP;
-                sequenceDeadline = now + SEQUENCE_DELAY_NS;
-                feederStatus = "Shooter starting; feeder waits 1 second";
+                sequenceDeadline = now + (long) (SHOOTER_START_DELAY_SECONDS * 1e9);
+                feederStatus = "Shooter starting; feeder waits " + SHOOTER_START_DELAY_SECONDS + " seconds";
             }
             // START during an active sequence does not restart its timer or cancel stopping.
         }
@@ -146,18 +144,24 @@ public class BioBuzzTeleop extends OpMode {
     @Override public void loop() {
         updateShooter();
         updateInputDCShooter();
-        // FTC calls loop() only after START. Arm priority: D-pad UP, D-pad DOWN, then Y.
+        // FTC calls loop() only after START. Arm priority: D-pad UP, then D-pad DOWN.
         // No button means retain the last arm position; motor controls remain separate.
         if (gamepad1.dpad_up) intakeArm.liftUp();
         else if (gamepad1.dpad_down) intakeArm.liftDown();
-        else if (gamepad1.y) intakeArm.liftIntermediate();
+        // Gamepad 1 presets win; Gamepad 2 nudges once per press, not every loop.
+        else if (gamepad2.dpad_up && !armUpWasPressed && !gamepad2.dpad_down)
+            intakeArm.adjustDegrees(-ARM_STEP_DEGREES);
+        else if (gamepad2.dpad_down && !armDownWasPressed && !gamepad2.dpad_up)
+            intakeArm.adjustDegrees(ARM_STEP_DEGREES);
+        armUpWasPressed = gamepad2.dpad_up;
+        armDownWasPressed = gamepad2.dpad_down;
         telemetry.addData("Intake arm target (deg)", intakeArm.getCommandedDegrees());
         // Robot-relative controls: left stick Y drives forward/backward (negated because
 
         //  Left stick up/down: drives forward/backward.
         //  Left stick/right: strafes the robot sideways left/right, keeping its facing direction.
         //  Right stick left/right: rotates the robot anticlockwise/clockwise.
-        //  dpad right - Manually start Intake
+        //  dpad right - Restore intake power to 90% and start Intake
         //  dpad left - Manually stop Intake
         //  Intake will automatically start once robo moves
         // Use Dpad left to stop Intake
@@ -182,16 +186,21 @@ public class BioBuzzTeleop extends OpMode {
             intakeManualStop = true;
             intakeRunning = false;
         } else if (gamepad1.dpad_right) {
+            // RIGHT always restores the default 90% power, including after X reaches zero.
+            intakePowerPercent = INITIAL_INTAKE_POWER_PERCENT;
             intakeManualStop = false;
             intakeRunning = true; // Can also collect while the chassis is stationary.
         } else if (driving && !intakeManualStop) {
             intakeRunning = true;
         }
         // Releasing the sticks does not stop intake; use D-pad LEFT or OpMode STOP.
-        // One reduction per X press; integer percentages reach zero exactly.
-        if (gamepad1.x && !intakeXWasPressed)
-            intakePowerPercent = Math.max(0, intakePowerPercent - 10);
+        // X/Y adjust once per press; RIGHT reset wins and simultaneous X+Y is ignored.
+        if (gamepad1.x && !intakeXWasPressed && !gamepad1.y && !gamepad1.dpad_right)
+            intakePowerPercent = Math.max(0, intakePowerPercent - INTAKE_STEP_PERCENT);
+        else if (gamepad1.y && !intakeYWasPressed && !gamepad1.x && !gamepad1.dpad_right)
+            intakePowerPercent = Math.min(MAX_INTAKE_POWER_PERCENT, intakePowerPercent + INTAKE_STEP_PERCENT);
         intakeXWasPressed = gamepad1.x;
+        intakeYWasPressed = gamepad1.y;
         // Gamepad 2 X toggles direction once per press; it does not start a stopped intake.
         if (gamepad2.x && !intakeReverseXWasPressed) intakeReverse = !intakeReverse;
         intakeReverseXWasPressed = gamepad2.x;
@@ -199,9 +208,10 @@ public class BioBuzzTeleop extends OpMode {
         else intake.stop();
         telemetry.addData("Intake", intakeManualStop ? "Manual STOP (RIGHT to restart)"
                 : intakePowerPercent == 0 ? "Stopped (0% selected power)" : intakeRunning ? "Running" : "Waiting for drive or D-pad RIGHT");
-        telemetry.addData("Intake selected power", "%d%% (X: -10%%)", intakePowerPercent);
+        telemetry.addData("Intake selected power", "%d%% (X/Y step: %d points)", intakePowerPercent, INTAKE_STEP_PERCENT);
         telemetry.addData("Intake direction (gamepad 2 X toggles)", intakeReverse ? "REVERSE" : "NORMAL" );
         telemetry.addData("Intake decrease (gamepad 1 X)", gamepad1.x ? "PRESSED" : "Released");
+        telemetry.addData("Intake increase (gamepad 1 Y)", gamepad1.y ? "PRESSED" : "Released");
         telemetry.addData("Turn input", "%.2f", turn);
         telemetry.addData("Drive", "Robot-relative");
         telemetry.addData("Front left power (FLDC)", "%.2f", frontLeft.getPower());
@@ -212,8 +222,11 @@ public class BioBuzzTeleop extends OpMode {
 
     @Override public void start() {
         teleopStarted = true;
+        armUpWasPressed = gamepad2.dpad_up;
+        armDownWasPressed = gamepad2.dpad_down;
         intakeReverseXWasPressed = gamepad2.x; // Ignore buttons held during INIT.
-        intakeXWasPressed = gamepad1.x; // Ignore X held during INIT.
+        intakeXWasPressed = gamepad1.x;
+        intakeYWasPressed = gamepad1.y; // Ignore X held during INIT.
         feederStartWasPressed = gamepad2.start;
         // Require new presses after Driver Station START; ignore buttons held in INIT.
         shooterAWasPressed = gamepad2.a;
@@ -231,7 +244,7 @@ public class BioBuzzTeleop extends OpMode {
         // Retain selected speed between sequences; INIT resets it to 60%.
         if (speedChanged) {
             int previousSpeed = selectedShooterSpeedPercent;
-            int step = 5;
+            int step = SHOOTER_STEP_PERCENT;
             selectedShooterSpeedPercent = Math.max(0, Math.min(MAX_SHOOTER_SPEED_PERCENT,
                     selectedShooterSpeedPercent + (increasePressed ? step : -step)));
             lastShooterSpeedChange = (increasePressed ? "A" : "B") + " pressed: "

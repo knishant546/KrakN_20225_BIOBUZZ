@@ -8,6 +8,7 @@
 package org.firstinspires.ftc.teamcode.AutoAppl;
 
 import static com.pedropathing.api.Paths.line;
+import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
 
 import com.pedropathing.api.PoseFactory;
 import com.pedropathing.follower.Follower;
@@ -22,6 +23,7 @@ import org.firstinspires.ftc.teamcode.subsystems.HiveUpTagIDLogic;
 import dev.nextftc.core.commands.utility.InstantCommand;
 
 import dev.nextftc.core.commands.Command;
+import dev.nextftc.core.commands.conditionals.IfElseCommand;
 import dev.nextftc.core.commands.delays.Delay;
 import dev.nextftc.core.commands.groups.SequentialGroup;
 import dev.nextftc.core.commands.utility.LambdaCommand;
@@ -45,8 +47,6 @@ public class RED_AutoGarden extends NextFTCOpMode {
     private Command routine, deadlinePark;
     private long autoStartedAt;
     private boolean autoRunning, parkingStarted;
-    private static final double PARK_DEADLINE_SECONDS = 24.0;
-    private static final double AUTO_LIMIT_SECONDS = 30.0;
     private String autoStatus = "Ready";
     private final AutoShootSequence shooting = new AutoShootSequence();
 //=======================Test ONLY==========================
@@ -57,9 +57,12 @@ public class RED_AutoGarden extends NextFTCOpMode {
     private final IntakeArmSingleServo arm = new IntakeArmSingleServo();
     private HiveUpTagIDLogic hiveTags;
     private long hiveWaitStarted;
-    private boolean hiveReady;
+    private boolean hiveReady, hiveCheckDone;
+    private long hiveStableSince;
     private String hiveResult = "First shot: no check required";
     private Pose strafeClearancePose;
+    private Pose gardenSlideIn, gardenSlideOut, shootingHome;
+    private Pose flowerStart, flowerReached, flowerSlideIn;
     private Pose corner1;
     private Pose turn1;
     private Pose corner2;
@@ -111,66 +114,55 @@ public class RED_AutoGarden extends NextFTCOpMode {
     }
 
     private void buildPath() {
-        // Same coordinates/headings as before, expressed with the Pedro 3 PoseFactory.
-       // startPoseStraight = new Pose(0, 0, Math.toRadians(0));
-       // adjustPoseToShoot = new Pose(12, -18, Math.toRadians(180));
-      //  moveToPickRow = new Pose(0, 0., Math.toRadians(180));
-
-        //adjustPoseToShoot = new Pose(11, 4, Math.toRadians(24));
-
-       // moveToPickRow = new Pose(27, 18.6, Math.toRadians(90));
-        //adjustOut = startPoseStraight;
-//=======================Test ONLY==========================
-        startPose = new Pose(0, 0, Math.toRadians(0));
-        // Same straight direction as RED_AutoFlower: move one inch in -X before shooting.
-        shootingPose = new Pose(-1, 0, Math.toRadians(0));
-        gardenApproach = new Pose(-4, 0, 0);
-        gardenPos = new Pose(-4, -52.89, 0);
-
-        // Preserve the current 3-inch sideways clearance from the new shooting pose.
-        strafeClearancePose = new Pose(-1, -3, Math.toRadians(0));
-        // Measured with DisplayCoorindate from the same start-relative origin.
-        // Heading 268.76 degrees is equivalent to -91.24 degrees (clockwise).
-        turn1 = new Pose(-73.16, -45.13, Math.toRadians(-91.24));
-/*
-        corner2 = new Pose(0, -24, Math.toRadians(0));
-        turn2   = new Pose(0, 0, Math.toRadians(0));
-        corner3 = new Pose(0, -12, Math.toRadians(180));
-
-// Third right turn
-        turn3 = new Pose(0, -12, Math.toRadians(90));
-
-// Fourth side: drive forward 12" back to origin
-        corner4 = new Pose(0, 0, Math.toRadians(90));
-
-// Final right turn back to original heading
-        turn4 = new Pose(0, 0, Math.toRadians(0));*/
-        //=======================Test ONLY==========================
+        startPose = START.pose();
+        shootingPose = GARDEN_SHOOT.pose();
+        gardenApproach = GARDEN_APPROACH_START.pose();
+        gardenPos = GARDEN_COLLECT_REACH.pose();
+        gardenSlideIn = GARDEN_COLLECT_SLIDE_IN.pose();
+        gardenSlideOut = GARDEN_COLLECT_SLIDE_OUT.pose();
+        shootingHome = GARDEN_SHOOT_HOME.pose();
+        flowerStart = GARDEN_FLOWER_START.pose();
+        flowerReached = GARDEN_FLOWER_REACHED.pose();
+        flowerSlideIn = GARDEN_FLOWER_SLIDE_IN.pose();
+        strafeClearancePose = GARDEN_BEFOREPARK_STRAFE.pose();
+        // Zero-degree parking heading: maintain the starting orientation.
+        turn1 = GARDEN_PARK.pose();
     }
-
-    /** Second shot only: Garden IDs 34..37 indicate UP by the camera-mount heuristic. */
+    /** Require fresh RED Garden tags continuously for one second; otherwise skip shot two. */
     private Command buildGardenHiveWaitCommand() {
-        return new LambdaCommand("Check Garden hive")
+        return new LambdaCommand("Confirm Garden hive before second shot")
                 .setStart(() -> {
-                    shooting.stop();
+                    // Intake keeps running from collection; shooter and feeder are still stopped.
                     hiveTags.reset();
                     hiveWaitStarted = System.nanoTime();
+                    hiveStableSince = 0;
                     hiveReady = false;
-                    hiveResult = "Waiting for >=2 Garden tags, up to 2 seconds";
+                    hiveCheckDone = false;
+                    hiveResult = "Checking Garden UP stability";
                 })
                 .setUpdate(() -> {
                     hiveTags.update();
+                    long now = System.nanoTime();
                     if (hiveTags.isRedGardenUp()) {
-                        hiveReady = true;
-                        hiveResult = "Garden tags detected: proceed to second shot";
-                    } else if ((System.nanoTime() - hiveWaitStarted) / 1e9 >= 2.0) {
-                        hiveReady = true;
-                        hiveResult = "2-second timeout: shoot without UP confirmation";
+                        if (hiveStableSince == 0) hiveStableSince = now;
+                        double stableSeconds = (now - hiveStableSince) / 1e9;
+                        hiveReady = stableSeconds >= GARDEN_HIVE_STABLE_SECONDS;
+                        hiveResult = hiveReady ? "Garden UP confirmed: shoot"
+                                : String.format("Garden UP settling: %.2f / %.2f s",
+                                        stableSeconds, GARDEN_HIVE_STABLE_SECONDS);
+                    } else {
+                        hiveStableSince = 0;
+                        hiveReady = false;
+                        hiveResult = "Garden not confirmed UP; stability reset";
+                    }
+                    hiveCheckDone = hiveReady;
+                    if (!hiveReady && (now - hiveWaitStarted) / 1e9 >= GARDEN_HIVE_WAIT_SECONDS) {
+                        hiveCheckDone = true;
+                        hiveResult = "No stable Garden UP confirmation: skip shot and park";
                     }
                 })
-                .setIsDone(() -> hiveReady);
+                .setIsDone(() -> hiveCheckDone);
     }
-
     private void prepareParking() {
         parkingStarted = true;
         shooting.stop();
@@ -190,34 +182,61 @@ public class RED_AutoGarden extends NextFTCOpMode {
             shooting.stop();
             hiveTags.stop();
             follower.stop();
-            autoStatus = "30 seconds: all motion stopped";
+            autoStatus = AUTO_LIMIT_SECONDS + " seconds: all motion stopped";
         } else if (elapsed >= PARK_DEADLINE_SECONDS && !parkingStarted) {
             if (routine != null) routine.cancel();
             follower.stop();
             prepareParking();
-            autoStatus = "24-second deadline: direct parking from current pose";
-            // This direct recovery path needs field clearance validation from collection locations.
-            deadlinePark = buildMoveCommand(follower.pose(), turn1);
+            autoStatus = PARK_DEADLINE_SECONDS + "-second deadline: parking via clearance";
+            // Use the clearance waypoint even on timeout; validate approach from collection positions.
+            deadlinePark = new SequentialGroup(
+                    buildMoveCommand(follower.pose(), strafeClearancePose),
+                    buildMoveCommand(strafeClearancePose, turn1),
+                    new InstantCommand(() -> autoStatus = "Parking path complete"));
             deadlinePark.schedule();
         }
+    }
+    /** Runs only after the confirmed second shot finishes, with intake left running. */
+    private Command buildFlowerCollectionAndThirdShot() {
+        return new SequentialGroup(
+                new InstantCommand(() -> autoStatus = "Flower collection after second shot"),
+                buildMoveCommand(shootingHome, flowerStart),
+                new InstantCommand(arm::liftDown),
+                buildMoveCommand(flowerStart, flowerReached),
+                buildMoveCommand(flowerReached, flowerSlideIn),
+                new Delay(GARDEN_FLOWER_COLLECTION_SECONDS),
+                buildMoveCommand(flowerSlideIn, flowerReached),
+                // Fold after backing out, before returning to the shooting position.
+                new InstantCommand(arm::liftUp),
+                buildMoveCommand(flowerReached, shootingHome),
+                new InstantCommand(() -> autoStatus = "Third shot: no additional hive check"),
+                shooting.command(SHOOTER_SPEED_FRACTION, GARDEN_THIRD_SHOOT_SECONDS)
+        );
     }
     private Command autonomousRoutine() {
         return new SequentialGroup(
                 buildMoveCommand(startPose, shootingPose),
-                shooting.command(AutoShootSequence.SHOOTER_SPEED_FRACTION, 6.0),
-                // Collect at gardenPos, then retrace the separate straight/strafe legs.
+                shooting.command(SHOOTER_SPEED_FRACTION, GARDEN_FIRST_SHOOT_SECONDS),
+                // Start intake before leaving the shooting position; keep it on during travel.
+                new InstantCommand(shooting::startCollecting),
                 buildMoveCommand(shootingPose, gardenApproach),
                 buildMoveCommand(gardenApproach, gardenPos),
-                new Delay(0.5),
-                shooting.collectCommand(2.0),
-                buildMoveCommand(gardenPos, gardenApproach),
-                buildMoveCommand(gardenApproach, shootingPose),
+                buildMoveCommand(gardenPos, gardenSlideIn),
+                // Keep intake running at slide-in and throughout the return and hive check.
+                new Delay(GARDEN_COLLECTION_SECONDS),
+                buildMoveCommand(gardenSlideIn, gardenSlideOut),
+                buildMoveCommand(gardenSlideOut, shootingHome),
                 buildGardenHiveWaitCommand(),
-                shooting.command(AutoShootSequence.SHOOTER_SPEED_FRACTION, 4.0),
-                // Vision is no longer needed: stop polling before driving to parking.
+                // Total duration includes the configured feeder startup delay.
+                new IfElseCommand(() -> hiveReady,
+                        new SequentialGroup(
+                                shooting.command(SHOOTER_SPEED_FRACTION, GARDEN_SECOND_SHOOT_SECONDS, true),
+                                buildFlowerCollectionAndThirdShot()),
+                        new InstantCommand(() -> autoStatus = "Hive not UP: skipping second shot")),
                 new InstantCommand(this::prepareParking),
-                buildMoveCommand(shootingPose, strafeClearancePose),
-                buildMoveCommand(strafeClearancePose, turn1), new InstantCommand(() -> autoStatus = "Parking path complete")
+                buildMoveCommand(shootingHome, strafeClearancePose),
+                buildMoveCommand(strafeClearancePose, turn1),
+                new InstantCommand(() -> autoStatus = "Parking path complete")
         );
     }
     @Override
@@ -227,7 +246,7 @@ public class RED_AutoGarden extends NextFTCOpMode {
         deadlinePark = null;
         buildPath();
         shooting.init(hardwareMap); // Hardware ready but stopped during INIT.
-        arm.init(hardwareMap); // Keep the intake arm folded up during this two-shot routine.
+        arm.init(hardwareMap); // Start folded; the optional flower trip lowers and then folds the arm.
         hiveTags = new HiveUpTagIDLogic(hardwareMap);
         hiveTags.start();
 

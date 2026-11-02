@@ -213,7 +213,7 @@ public class Constants {
 
                 // Temporary migration speed limit.
                 // Remove/change after AutoTune.
-                c.maxPathSpeed.set(0.80);
+                c.maxPathSpeed.set(org.firstinspires.ftc.teamcode.config.AutoConfig.MAX_PATH_SPEED);
             }
     );
 
