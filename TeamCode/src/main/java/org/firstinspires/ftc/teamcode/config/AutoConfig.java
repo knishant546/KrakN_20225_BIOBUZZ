@@ -19,6 +19,8 @@ public final class AutoConfig {
     public static final double FEEDER_DELAY_SECONDS = 1.0;
     public static final double DEFAULT_SHOOT_SECONDS = 6.0;
     public static final double PARK_DEADLINE_SECONDS = 24.0;
+    // Driving only: collection, shooting, and vision waits use separate timers.
+    public static final double WAYPOINT_TIMEOUT_SECONDS = 3.0;
     public static final double AUTO_LIMIT_SECONDS = 30.0;
 
     public static final double GARDEN_FIRST_SHOOT_SECONDS = 4.0; // Includes feeder startup.

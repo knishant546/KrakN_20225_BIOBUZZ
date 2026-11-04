@@ -40,6 +40,9 @@ public class RED_AutoFlower extends NextFTCOpMode {
     private Pose finalPose;
     private final AutoShootSequence shooting = new AutoShootSequence();
     private final IntakeArmSingleServo arm = new IntakeArmSingleServo();
+    private String lastMovementResult = "None";
+    private String lastWaypointTimeout = "None";
+    private int waypointTimeoutCount;
     private Follower follower;
     private HiveUpTagIDLogic hiveTags;
     private long hiveWaitStartedAt;
@@ -70,11 +73,34 @@ public class RED_AutoFlower extends NextFTCOpMode {
     }
 
     private Command buildMoveCommand(Pose from, Pose to, String label) {
-        Path path = line(from, to).linear(from, to);
-        return new LambdaCommand(label)
-                .setStart(() -> { stage = label; follower.follow(path); })
-                .setIsDone(() -> !follower.isBusy())
-                .setStop(interrupted -> follower.stop());
+        final long[] movementStartedAt = {0};
+        final boolean[] timedOut = {false};
+        final String movementLabel = label;
+        return new LambdaCommand(movementLabel)
+                .setStart(() -> {
+                    stage = movementLabel;
+                    timedOut[0] = false;
+                    // Previous leg may have timed out: use measured pose instead of its target.
+                    Pose actualStart = follower.pose();
+                    follower.follow(line(actualStart, to).linear(actualStart, to));
+                    movementStartedAt[0] = System.nanoTime();
+                })
+                .setIsDone(() -> {
+                    if (!follower.isBusy()) return true;
+                    timedOut[0] = (System.nanoTime() - movementStartedAt[0]) / 1e9
+                            >= WAYPOINT_TIMEOUT_SECONDS;
+                    return timedOut[0];
+                })
+                .setStop(interrupted -> {
+                    follower.stop();
+                    // Timeout advances the sequence, including any following mechanism action.
+                    lastMovementResult = movementLabel + (interrupted ? ": interrupted"
+                            : timedOut[0] ? ": TIMEOUT - advancing" : ": follower completed");
+                    if (timedOut[0] && !interrupted) {
+                        waypointTimeoutCount++;
+                        lastWaypointTimeout = lastMovementResult;
+                    }
+                });
     }
 
     /** Test-only bounded movement: timing does not guarantee reaching the five-inch target. */
@@ -231,6 +257,9 @@ public class RED_AutoFlower extends NextFTCOpMode {
         telemetry.addData("Y", follower.pose().y());
         telemetry.addData("Heading (deg)", Math.toDegrees(follower.pose().heading()));
         telemetry.addData("Intake arm target (deg)", arm.getCommandedDegrees());
+        telemetry.addData("Last movement result", lastMovementResult);
+        telemetry.addData("Waypoint timeouts", waypointTimeoutCount);
+        telemetry.addData("Last waypoint timeout", lastWaypointTimeout);
         telemetry.update();
     }
 

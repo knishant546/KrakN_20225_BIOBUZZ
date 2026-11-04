@@ -32,7 +32,7 @@ public class IntakeArmSingleServo {
     public static final double UP_DEGREES = 30.0;
 
     // Servo command angles for the current horn mounting, not measured arm angles.
-    // Smaller values raise the arm: UP=30, intermediate=135, floor=148.
+    // Smaller values raise the arm: UP=30, intermediate=135, DOWN=90.
     // Adjust the offset/direction only when recalibrating the physical linkage.
     private static final double FLOOR_OFFSET_DEGREES = 0.0;
     private static final Servo.Direction DIRECTION = Servo.Direction.FORWARD;
@@ -52,20 +52,21 @@ public class IntakeArmSingleServo {
     /** Fold upward to the configured servo angle. */
     public void liftUp() { setArmPosition(UP_DEGREES); }
 
-    /** Lower to the configured 148-degree floor position for flower intake. */
+    /** Move to the configured DOWN_DEGREES position. */
     public void liftDown() { setArmPosition(DOWN_DEGREES); }
 
     /** Move to the intermediate angle; repeated calls retain the same absolute position. */
     public void liftIntermediate() { setArmPosition(INTERMEDIATE_DEGREE); }
 
-    /** Adjust the current command: negative raises, positive lowers; clamp to preset limits. */
+    /** Nudge the commanded angle, clamped between the calibrated UP and DOWN presets. */
     public void adjustDegrees(double deltaDegrees) {
         if (servo == null) throw new IllegalStateException("Call init() first");
-        if (!Double.isFinite(deltaDegrees)) throw new IllegalArgumentException("Angle change must be finite");
-        setArmPosition(Math.max(UP_DEGREES,
-                Math.min(DOWN_DEGREES, commandedArmDegrees + deltaDegrees)));
+        if (!Double.isFinite(deltaDegrees))
+            throw new IllegalArgumentException("Angle change must be finite");
+        double minimum = Math.min(UP_DEGREES, DOWN_DEGREES);
+        double maximum = Math.max(UP_DEGREES, DOWN_DEGREES);
+        setArmPosition(Math.max(minimum, Math.min(maximum, commandedArmDegrees + deltaDegrees)));
     }
-
     private void setArmPosition(double armDegrees) {
         if (servo == null) throw new IllegalStateException("Call IntakeArmSingleServo.init() first");
         double servoDegrees = FLOOR_OFFSET_DEGREES + armDegrees;

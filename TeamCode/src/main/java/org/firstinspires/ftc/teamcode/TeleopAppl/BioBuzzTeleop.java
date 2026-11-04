@@ -21,7 +21,7 @@ import org.firstinspires.ftc.teamcode.subsystems.ShooterBBTeleop;
 @TeleOp(name = "BioBuzzTeleop", group = "BioBuzz")
 public class BioBuzzTeleop extends OpMode {
     // Both motors initialize stopped during INIT.
-    // Gamepad 2 START sequences the shooter and feeder after Driver Station START.
+    // Gamepad 2 LT sequences the shooter and feeder after Driver Station START.
     private ShooterBBTeleop shooter;
     private boolean shooterAWasPressed, shooterBWasPressed;
     // Velocity control: start at 60% of 2600 ticks/s, with A/B limited to 0..85%.
@@ -32,6 +32,8 @@ public class BioBuzzTeleop extends OpMode {
     private int selectedShooterSpeedPercent = INITIAL_SHOOTER_SPEED_PERCENT;
     private String lastShooterSpeedChange = "No speed change requested";
     private InputDCShooter inputDCShooter;
+    // Trigger depth selects a button press, not shooter velocity.
+    private static final double SHOOTER_TRIGGER_THRESHOLD = 0.5;
     private boolean feederStartWasPressed;
     private enum FeedSequence { IDLE, SPINNING_UP, FEEDING, SPINNING_DOWN }
     private FeedSequence feedSequence = FeedSequence.IDLE;
@@ -79,17 +81,17 @@ public class BioBuzzTeleop extends OpMode {
         inputDCShooter = new InputDCShooter(); inputDCShooter.init(hardwareMap);
         inputDCShooter.setPower(FEEDER_POWER);
         feederStatus = "Ready / stopped";
-        feederStartWasPressed = gamepad2.start;
+        feederStartWasPressed = gamepad2.left_trigger > SHOOTER_TRIGGER_THRESHOLD;
         // MecanumDrive owns motor directions and encoder modes, matching KKN_TEST.
         frontLeft = hardwareMap.get(DcMotor.class, "FLDC");
         frontRight = hardwareMap.get(DcMotor.class, "FRDC");
         rearLeft = hardwareMap.get(DcMotor.class, "RLDC");
         rearRight = hardwareMap.get(DcMotor.class, "RRDC");
         telemetry.addLine("Ready: left stick drive/strafe, right stick X turn");
-        telemetry.addLine("Shooter after Driver Station START: gamepad START sequence, BACK stop sequence, A +5%, B -5% (gamepad 2)");
+        telemetry.addLine("Shooter after Driver Station START: gamepad LT sequence, RT stop sequence, A +5%, B -5% (gamepad 2)");
         telemetry.addLine("Intake: auto-start on drive; D-pad RIGHT start/reset to 90% / LEFT stop (latched); Gamepad 1 X -10 / Y +10 percentage points; Gamepad 2 X reverses intake");
         telemetry.addLine("Arm: folded UP; after START: gamepad 1 UP/DOWN presets; gamepad 2 UP -5 / DOWN +5 degrees");
-        telemetry.addData("Input shooter motor", "Ready / stopped; Gamepad 2 START: shooter then feeder; BACK: feeder then shooter");
+        telemetry.addData("Input shooter motor", "Ready / stopped; Gamepad 2 LT: shooter then feeder; RT: feeder then shooter");
     }
 
     @Override public void init_loop() {
@@ -99,12 +101,12 @@ public class BioBuzzTeleop extends OpMode {
 
     private void updateInputDCShooter() {
         long now = System.nanoTime();
-        boolean startPressed = gamepad2.start && !feederStartWasPressed
+        boolean startPressed = gamepad2.left_trigger > SHOOTER_TRIGGER_THRESHOLD && !feederStartWasPressed
                 && !gamepad2.a && !gamepad2.b;
-        // Stop requests win over START and cancel a pending feeder start.
-        if (gamepad2.back) {
+        // RT stop requests win over LT and cancel a pending feeder start.
+        if (gamepad2.right_trigger > SHOOTER_TRIGGER_THRESHOLD) {
             if (inputDCShooter != null) inputDCShooter.stop();
-            // Holding BACK must not continually restart the one-second timer.
+            // Holding RT must not continually restart the one-second timer.
             if (feedSequence == FeedSequence.SPINNING_UP || feedSequence == FeedSequence.FEEDING) {
                 feedSequence = FeedSequence.SPINNING_DOWN;
                 sequenceDeadline = now + (long) (SHOOTER_STOP_DELAY_SECONDS * 1e9);
@@ -121,11 +123,11 @@ public class BioBuzzTeleop extends OpMode {
                 sequenceDeadline = now + (long) (SHOOTER_START_DELAY_SECONDS * 1e9);
                 feederStatus = "Shooter starting; feeder waits " + SHOOTER_START_DELAY_SECONDS + " seconds";
             }
-            // START during an active sequence does not restart its timer or cancel stopping.
+            // LT during an active sequence does not restart its timer or cancel stopping.
         }
         // Nonblocking timers: driving and button handling continue during each delay.
         if (feedSequence == FeedSequence.SPINNING_UP && now >= sequenceDeadline) {
-            if (shooter.getTargetVelocity() > 0 && !gamepad2.back) {
+            if (shooter.getTargetVelocity() > 0 && gamepad2.right_trigger <= SHOOTER_TRIGGER_THRESHOLD) {
                 inputDCShooter.start();
                 feedSequence = FeedSequence.FEEDING;
                 feederStatus = "Shooter + feeder running";
@@ -133,7 +135,7 @@ public class BioBuzzTeleop extends OpMode {
         } else if (feedSequence == FeedSequence.SPINNING_DOWN && now >= sequenceDeadline) {
             stopShootingImmediately();
         }
-        feederStartWasPressed = gamepad2.start;
+        feederStartWasPressed = gamepad2.left_trigger > SHOOTER_TRIGGER_THRESHOLD;
         telemetry.addData("Input shooter motor", feederStatus);
         telemetry.addData("Shooting sequence", feedSequence);
         if (feedSequence == FeedSequence.SPINNING_UP || feedSequence == FeedSequence.SPINNING_DOWN)
@@ -227,7 +229,7 @@ public class BioBuzzTeleop extends OpMode {
         intakeReverseXWasPressed = gamepad2.x; // Ignore buttons held during INIT.
         intakeXWasPressed = gamepad1.x;
         intakeYWasPressed = gamepad1.y; // Ignore X held during INIT.
-        feederStartWasPressed = gamepad2.start;
+        feederStartWasPressed = gamepad2.left_trigger > SHOOTER_TRIGGER_THRESHOLD;
         // Require new presses after Driver Station START; ignore buttons held in INIT.
         shooterAWasPressed = gamepad2.a;
         shooterBWasPressed = gamepad2.b;

@@ -43,6 +43,9 @@ public class RED_AutoGarden extends NextFTCOpMode {
     private Pose moveToPickRow;
     private Pose adjustOut;
 
+    private String lastMovementResult = "None";
+    private String lastWaypointTimeout = "None";
+    private int waypointTimeoutCount;
     private Follower follower;
     private Command routine, deadlinePark;
     private long autoStartedAt;
@@ -91,13 +94,34 @@ public class RED_AutoGarden extends NextFTCOpMode {
      * LambdaCommand keeps it compatible with the existing NextFTC SequentialGroup.
      */
     private Command buildMoveCommand(Pose fromPosition, Pose toPosition) {
-        Path move = line(fromPosition, toPosition)
-                .linear(fromPosition, toPosition);
-
-        return new LambdaCommand("PedroFollowPath")
-                .setStart(() -> follower.follow(move))
-                .setIsDone(() -> !follower.isBusy())
-                .setStop(interrupted -> follower.stop());
+        final long[] movementStartedAt = {0};
+        final boolean[] timedOut = {false};
+        final String movementLabel = "Waypoint to " + toPosition.x() + ", " + toPosition.y();
+        return new LambdaCommand(movementLabel)
+                .setStart(() -> {
+                    autoStatus = movementLabel;
+                    timedOut[0] = false;
+                    // Previous leg may have timed out: use measured pose instead of its target.
+                    Pose actualStart = follower.pose();
+                    follower.follow(line(actualStart, toPosition).linear(actualStart, toPosition));
+                    movementStartedAt[0] = System.nanoTime();
+                })
+                .setIsDone(() -> {
+                    if (!follower.isBusy()) return true;
+                    timedOut[0] = (System.nanoTime() - movementStartedAt[0]) / 1e9
+                            >= WAYPOINT_TIMEOUT_SECONDS;
+                    return timedOut[0];
+                })
+                .setStop(interrupted -> {
+                    follower.stop();
+                    // Timeout advances the sequence, including any following mechanism action.
+                    lastMovementResult = movementLabel + (interrupted ? ": interrupted"
+                            : timedOut[0] ? ": TIMEOUT - advancing" : ": follower completed");
+                    if (timedOut[0] && !interrupted) {
+                        waypointTimeoutCount++;
+                        lastWaypointTimeout = lastMovementResult;
+                    }
+                });
     }
     private Command buildTurnCommand(Pose targetPose) {
         return new LambdaCommand("PedroTurn")
@@ -278,6 +302,9 @@ public class RED_AutoGarden extends NextFTCOpMode {
         telemetry.addData("Y", follower.pose().y());
         telemetry.addData("Heading (deg)", Math.toDegrees(follower.pose().heading()));
         telemetry.addData("Follower mode", follower.mode());
+        telemetry.addData("Last movement result", lastMovementResult);
+        telemetry.addData("Waypoint timeouts", waypointTimeoutCount);
+        telemetry.addData("Last waypoint timeout", lastWaypointTimeout);
         telemetry.update();
     }
 
