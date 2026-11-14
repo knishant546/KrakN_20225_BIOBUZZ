@@ -87,57 +87,74 @@ public class AutoShootSequence {
         status = "Collecting: DC intake only; shooter/helper/feeder OFF";
     }
 
-    /** Full Garden/NoFlwr START: run holding intake and Pollen until parking/STOP. */
-    public void startContinuous(double fraction) {
+    /** Autonomous START: hold balls with intake; Pollen/feeder stay off until a shot. */
+    public void startHoldingIntake() {
         if (!initialized) throw new IllegalStateException("Initialize shooting sequence first");
-        stopFeeder();
+        stopShootingKeepIntake();
         feeder.setPower(-TeleopConfig.FEEDER_POWER);
-        shooter.runSpeedFraction(fraction);
         intake.start(INTAKE_POWER, false, false);
-        status = "Travel/collection: Pollen + intake running; feeder OFF";
+        status = "Travel/collection: intake running; Pollen + feeder OFF";
     }
 
-    /** End shot permission without disturbing the continuous intake/shooter. */
+    /** Revoke feeding permission, leaving other motors alone. */
     public void stopFeeder() {
         active = false;
         feeding = recovering = false;
         lowSince = readySince = Double.NaN;
         feeder.stop();
-        status = "Pollen + intake holding; feeder OFF";
+        status = "Feeder OFF";
     }
 
-    /** Garden shot window: actual pose permission AND speed readiness; no timed fallback.
-     * Cancellation ends only feeding. The owning OpMode stops everything at STOP/30 s.
+    /** End shooting/cancel a shot without releasing balls held by intake. */
+    public void stopShootingKeepIntake() {
+        stopFeeder();
+        shooter.stopImmediately();
+        status = "Intake holding; Pollen + feeder OFF (wheel may coast)";
+    }
+
+    /** Fixed total shot window: start Pollen only at the measured shooting position.
+     * Initial feeder timeout is measured from actual Pollen startup, not path completion.
+     * Hive permission is handled by the owning routine before scheduling this command.
      */
-    public Command continuousShotCommand(double seconds, BooleanSupplier atPosition) {
+    public Command positionShotCommand(double seconds, BooleanSupplier atPosition) {
         if (!Double.isFinite(seconds) || seconds <= 0 || atPosition == null)
             throw new IllegalArgumentException("Invalid shot window");
-        return new LambdaCommand("Garden position and speed gated shot")
+        final boolean[] pollenStarted = {false};
+        final long[] pollenStartedAt = {0};
+        return new LambdaCommand("Position-authorized Pollen shot")
                 .setStart(() -> {
-                    stopFeeder();
-                    allowStartupTimeout = false;
+                    stopShootingKeepIntake();
+                    pollenStarted[0] = false;
+                    allowStartupTimeout = true;
                     startedAt = System.nanoTime();
                     active = true;
-                    status = "Shot window: waiting for position and Pollen speed";
+                    status = "Shot window: waiting for shooting position";
                 })
                 .setUpdate(() -> {
-                    double elapsed = (System.nanoTime() - startedAt) / 1e9;
-                    if (elapsed >= seconds) { stopFeeder(); return; }
+                    long now = System.nanoTime();
+                    if ((now - startedAt) / 1e9 >= seconds) { stopShootingKeepIntake(); return; }
                     if (!atPosition.getAsBoolean()) {
                         feeder.stop();
-                        feeding = false;
-                        recovering = true;
+                        shooter.stopImmediately();
+                        pollenStarted[0] = false;
+                        feeding = recovering = false;
                         readySince = lowSince = Double.NaN;
-                        status = "Feeder blocked: shooting position not confirmed";
+                        status = "Pollen + feeder blocked: shooting position not confirmed";
                         return;
                     }
-                    updateSpeedGatedFeeding(elapsed);
+                    if (!pollenStarted[0]) {
+                        shooter.runSpeedFraction(SHOOTER_SPEED_FRACTION);
+                        feeder.setPower(-TeleopConfig.FEEDER_POWER);
+                        pollenStartedAt[0] = now;
+                        pollenStarted[0] = true;
+                        status = "At shooting position: Pollen starting; feeder waiting for speed or 1.5 s";
+                    }
+                    updateSpeedGatedFeeding((now - pollenStartedAt[0]) / 1e9);
                 })
                 .setIsDone(() -> !active || (System.nanoTime() - startedAt) / 1e9 >= seconds)
-                .setStop(interrupted -> stopFeeder())
+                .setStop(interrupted -> stopShootingKeepIntake())
                 .requires(this);
     }
-
     public Command command() {
         return command(SHOOTER_SPEED_FRACTION, DEFAULT_SHOOT_SECONDS);
     }

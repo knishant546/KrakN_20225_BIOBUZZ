@@ -159,7 +159,7 @@ public class RED_AutoGarden extends NextFTCOpMode {
     private Command buildGardenHiveWaitCommand() {
         return new LambdaCommand("Confirm Garden hive before second shot")
                 .setStart(() -> {
-                    // Intake and Pollen keep running; feeder remains off during the hive check.
+                    // Intake keeps running; Pollen and feeder remain off during the hive check.
                     hiveTags.reset();
                     hiveWaitStarted = System.nanoTime();
                     hiveReady = false;
@@ -201,7 +201,7 @@ public class RED_AutoGarden extends NextFTCOpMode {
 
     private void prepareParking() {
         parkingStarted = true;
-        shooting.stopFeeder();
+        shooting.stopShootingKeepIntake();
         arm.liftUp();
         hiveTags.stop();
         autoStatus = "Parking";
@@ -258,36 +258,36 @@ public class RED_AutoGarden extends NextFTCOpMode {
                 buildMoveCommand(flowerStart, flowerReached),
                 buildTimedSlideInCommand(flowerSlideIn, "Flower slide-in"),
                 new Delay(GARDEN_FLOWER_COLLECTION_SECONDS),
-                // Revoke feeding while returning; intake and Pollen continue running.
-                new InstantCommand(shooting::stopFeeder),
+                // Keep intake running during return; Pollen and feeder remain off.
+                new InstantCommand(shooting::stopShootingKeepIntake),
                 buildMoveCommand(flowerSlideIn, flowerBackout, GARDEN_FLOWER_BACKOUT_TIMEOUT_SECONDS),
                 // Fold after backing out, before returning to the shooting position.
                 new InstantCommand(arm::liftUp),
                 buildMoveCommand(flowerBackout, shootingHome),
                 new InstantCommand(() -> autoStatus = "Third shot: no additional hive check"),
-                shooting.continuousShotCommand(GARDEN_THIRD_SHOOT_SECONDS, () -> atShootingPosition(shootingHome))
+                shooting.positionShotCommand(GARDEN_THIRD_SHOOT_SECONDS, () -> atShootingPosition(shootingHome))
         );
     }
     private Command autonomousRoutine() {
         return new SequentialGroup(
                 buildMoveCommand(startPose, shootingPose),
-                shooting.continuousShotCommand(GARDEN_FULL_FIRST_SHOOT_SECONDS, () -> atShootingPosition(shootingPose)),
-                // Keep continuous intake/Pollen operation; no feeding during travel.
-                new InstantCommand(shooting::stopFeeder),
+                shooting.positionShotCommand(GARDEN_FULL_FIRST_SHOOT_SECONDS, () -> atShootingPosition(shootingPose)),
+                // Keep intake running; Pollen and feeder remain off during travel.
+                new InstantCommand(shooting::stopShootingKeepIntake),
                 buildMoveCommand(shootingPose, gardenApproach),
                 buildMoveCommand(gardenApproach, gardenPos, GARDEN_REACH_TIMEOUT_SECONDS),
                 buildTimedSlideInCommand(gardenSlideIn, "Garden slide-in"),
-                // Collect at slide-in; intake and Pollen remain on during return and hive check.
+                // Collect at slide-in; intake remains on during return and hive check.
                 new Delay(GARDEN_COLLECTION_SECONDS),
-                // Revoke feeding while returning; intake and Pollen continue running.
-                new InstantCommand(shooting::stopFeeder),
+                // Keep intake running during return; Pollen and feeder remain off.
+                new InstantCommand(shooting::stopShootingKeepIntake),
                 buildMoveCommand(gardenSlideIn, gardenSlideOut, GARDEN_SLIDE_OUT_TIMEOUT_SECONDS),
                 buildMoveCommand(gardenSlideOut, shootingHome),
                 buildGardenHiveWaitCommand(),
                 // Total duration includes the configured feeder startup delay.
                 new IfElseCommand(() -> hiveReady,
                         new SequentialGroup(
-                                shooting.continuousShotCommand(GARDEN_SECOND_SHOOT_SECONDS, () -> atShootingPosition(shootingHome)),
+                                shooting.positionShotCommand(GARDEN_SECOND_SHOOT_SECONDS, () -> atShootingPosition(shootingHome)),
                                 // Evaluated at execution time, after the second shot finishes.
                                 new IfElseCommand(() -> AUTO_LIMIT_SECONDS - (System.nanoTime() - autoStartedAt) / 1e9
                                                 > GARDEN_FLOWER_MIN_REMAINING_SECONDS,
@@ -351,7 +351,7 @@ public class RED_AutoGarden extends NextFTCOpMode {
         autoStartedAt = System.nanoTime();
         autoRunning = true;
         autoStatus = "Scoring sequence";
-        shooting.startContinuous(SHOOTER_SPEED_FRACTION);
+        shooting.startHoldingIntake();
         routine.schedule();
     }
 

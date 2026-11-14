@@ -35,7 +35,8 @@ public final class AutoConfig {
     public static final double GARDEN_FLOWER_BACKOUT_TIMEOUT_SECONDS = 2.0;
     // Evaluated after shot two against the 30-second clock: strictly greater than 14.
     public static final double GARDEN_FLOWER_MIN_REMAINING_SECONDS = 14.0;
-    public static final double GARDEN_FIRST_SHOOT_SECONDS = 4.0; // Includes feeder startup.
+    public static final double GARDEN_FIRST_SHOOT_SECONDS = 5.0; // Includes feeder startup.
+    public static final double GARDEN_NOFLWR_SECOND_SHOOT_SECONDS = 5.0; // NoFlwr only.
     public static final double GARDEN_SECOND_SHOOT_SECONDS = 3.0; // Includes feeder spin-up.
     public static final double GARDEN_COLLECTION_PAUSE_SECONDS = 0.5;
     public static final double GARDEN_COLLECTION_SECONDS = 2.0;
@@ -52,7 +53,7 @@ public final class AutoConfig {
     public static final long HIVE_TAG_DROPOUT_MS = 150;
     public static final double HIVE_SETTLE_SECONDS = 3.0; // Flower continuous tag visibility.
     public static final double FLOWER_ARM_PAUSE_SECONDS = 1.0;
-    public static final double FLOWER_PRE_COLLECTION_DELAY_SECONDS = 2.0; // Allow shooter coast-down after slide-in.
+    public static final double FLOWER_POST_SHOT_COAST_SECONDS = 2.0; // After first shot, before leaving shooting position.
     public static final double FLOWER_COLLECTION_SECONDS = 2.0; // DC intake at collection point before retracing.
     public static final double FLOWER_SECOND_POSITION_PAUSE_SECONDS = 0.0;
     public static final double BACKWARD_TEST_SECONDS = 1.0; // Flower timed backward leg.

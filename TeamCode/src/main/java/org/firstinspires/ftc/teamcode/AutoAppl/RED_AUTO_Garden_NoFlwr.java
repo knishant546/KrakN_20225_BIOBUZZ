@@ -118,7 +118,7 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
     private Command buildGardenHiveWaitCommand() {
         return new LambdaCommand("Confirm Garden hive before second shot")
                 .setStart(() -> {
-                    // Intake and Pollen keep running; feeder remains off during the hive check.
+                    // Intake keeps running; Pollen and feeder remain off during the hive check.
                     hiveTags.reset();
                     hiveWaitStarted = System.nanoTime();
                     hiveReady = false;
@@ -160,7 +160,7 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
 
     private void prepareParking() {
         parkingStarted = true;
-        shooting.stopFeeder();
+        shooting.stopShootingKeepIntake();
         arm.liftUp();
         hiveTags.stop();
         autoStatus = "Parking";
@@ -194,22 +194,22 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
     private Command autonomousRoutine() {
         return new SequentialGroup(
                 buildMoveCommand(startPose, shootingPose),
-                shooting.continuousShotCommand(GARDEN_FIRST_SHOOT_SECONDS, () -> atShootingPosition(shootingPose)),
-                // Keep continuous intake/Pollen operation; no feeding during travel.
-                new InstantCommand(shooting::stopFeeder),
+                shooting.positionShotCommand(GARDEN_FIRST_SHOOT_SECONDS, () -> atShootingPosition(shootingPose)),
+                // Keep intake running; Pollen and feeder remain off during travel.
+                new InstantCommand(shooting::stopShootingKeepIntake),
                 buildMoveCommand(shootingPose, gardenApproach),
                 buildMoveCommand(gardenApproach, gardenPos),
                 buildMoveCommand(gardenPos, gardenSlideIn),
-                // Collect at slide-in; intake and Pollen remain on during return and hive check.
+                // Collect at slide-in; intake remains on during return and hive check.
                 new Delay(GARDEN_COLLECTION_SECONDS),
-                // Revoke feeding while returning; intake and Pollen continue running.
-                new InstantCommand(shooting::stopFeeder),
+                // Keep intake running during return; Pollen and feeder remain off.
+                new InstantCommand(shooting::stopShootingKeepIntake),
                 buildMoveCommand(gardenSlideIn, gardenSlideOut),
                 buildMoveCommand(gardenSlideOut, shootingHome),
                 buildGardenHiveWaitCommand(),
                 // Total duration includes speed-based startup and recovery pauses.
                 // Always shoot after the wait, even without hive confirmation. No Flower trip.
-                shooting.continuousShotCommand(GARDEN_SECOND_SHOOT_SECONDS, () -> atShootingPosition(shootingHome)),
+                shooting.positionShotCommand(GARDEN_NOFLWR_SECOND_SHOOT_SECONDS, () -> atShootingPosition(shootingHome)),
                 new InstantCommand(this::prepareParking),
                 buildMoveCommand(shootingHome, strafeClearancePose),
                 buildMoveCommand(strafeClearancePose, turn1),
@@ -267,7 +267,7 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
         autoStartedAt = System.nanoTime();
         autoRunning = true;
         autoStatus = "Scoring sequence";
-        shooting.startContinuous(SHOOTER_SPEED_FRACTION);
+        shooting.startHoldingIntake();
         routine.schedule();
     }
 

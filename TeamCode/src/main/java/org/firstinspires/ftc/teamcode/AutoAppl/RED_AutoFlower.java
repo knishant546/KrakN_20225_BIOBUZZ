@@ -122,7 +122,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
     private Command buildHiveWaitCommand() {
         return new LambdaCommand("Wait for RED Flower hive")
                 .setStart(() -> {
-                    shooting.stopFeeder();
+                    shooting.stopShootingKeepIntake();
                     hiveTags.reset();
                     hiveWaitStartedAt = System.nanoTime();
                     hiveGateDone = false;
@@ -143,7 +143,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
                     }
                 })
                 .setIsDone(() -> hiveGateDone)
-                .setStop(interrupted -> { if (interrupted) shooting.stopFeeder(); });
+                .setStop(interrupted -> { if (interrupted) shooting.stopShootingKeepIntake(); });
     }
     /** Stop scoring before parking, including when a deadline interrupts a command. */
     /** Same measured arrival tolerances as Garden; path timeout alone cannot allow feeding. */
@@ -166,7 +166,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
 
     private void prepareParking() {
         parkingStarted = true;
-        shooting.stopFeeder();
+        shooting.stopShootingKeepIntake();
         arm.liftUp();
         hiveTags.stop();
         stage = "Parking";
@@ -202,8 +202,11 @@ public class RED_AutoFlower extends NextFTCOpMode {
                 buildMoveCommand(startPose, flwrPos1, "Move straight 1 inch to FlwrPos1"),
                 buildHiveWaitCommand(),
                 stage("FlwrPos1: shoot at " + (SHOOTER_SPEED_FRACTION * 100) + "% speed"),
-                // Only feeder is gated by shooting position and speed; no startup timeout fallback.
-                shooting.continuousShotCommand(FLOWER_FIRST_SHOOT_SECONDS, this::atShootingPosition),
+                // Start Pollen only at confirmed position; feeder waits for speed or startup timeout.
+                shooting.positionShotCommand(FLOWER_FIRST_SHOOT_SECONDS, this::atShootingPosition),
+                // Shot command stops Pollen/feeder; stay here while the wheel coasts down.
+                stage("First shot complete: 2-second coast-down; intake holding"),
+                new Delay(FLOWER_POST_SHOT_COAST_SECONDS),
                 buildMoveCommand(flwrPos1, straightEnd, "Move straight 9 more inches"),
                 buildMoveCommand(straightEnd, strafeEnd, "Strafe 10 inches opposite RED_AutoGarden"),
                 stage("Arm down to " + IntakeArmSingleServo.DOWN_DEGREES + " degrees; wait " + FLOWER_ARM_PAUSE_SECONDS + " seconds"),
@@ -212,19 +215,19 @@ public class RED_AutoFlower extends NextFTCOpMode {
                 new Delay(FLOWER_ARM_PAUSE_SECONDS),
                 // Use the timed backward workaround; do not wait for Pedro busy/completion feedback.
                 buildTimedBackwardCommand(),
-                // Intake and Pollen remain running; feeder is OFF throughout collection.
-                stage("Flower: collect for 2 seconds; intake + Pollen running, feeder OFF"),
-                new InstantCommand(shooting::stopFeeder),
+                // Intake remains running; Pollen and feeder are OFF throughout collection.
+                stage("Flower: collect for 2 seconds; intake running, Pollen + feeder OFF"),
+                new InstantCommand(shooting::stopShootingKeepIntake),
                 new Delay(FLOWER_COLLECTION_SECONDS),
-                // Keep holding intake and Pollen running during return; feeder stays off.
-                new InstantCommand(shooting::stopFeeder),
+                // Keep intake holding during return; Pollen and feeder stay off.
+                new InstantCommand(shooting::stopShootingKeepIntake),
                 buildMoveCommand(flwrPos2, strafeEnd, "Return to (-10, 10), arm down"),
                 new InstantCommand(arm::liftUp),
                 buildMoveCommand(strafeEnd, straightEnd, "Retrace strafe to (-10, 0), arm up"),
                 buildMoveCommand(straightEnd, flwrPos1, "Return to first shooting position (-1, 0)"),
                 stage("FlwrPos1: second shot; no additional hive check"),
                 // Repeat speed-gated shooting at home; total duration includes spin-up/recovery pauses.
-                shooting.continuousShotCommand(FLOWER_SECOND_SHOOT_SECONDS, this::atShootingPosition),
+                shooting.positionShotCommand(FLOWER_SECOND_SHOOT_SECONDS, this::atShootingPosition),
                 // Vision is no longer needed: stop polling before driving to parking.
                 new InstantCommand(this::prepareParking),
                 buildMoveCommand(flwrPos1, exitStraight, "Move straight 10 inches after shooting"),
@@ -251,7 +254,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
     @Override public void onStartButtonPressed() {
         autoStartedAt = System.nanoTime();
         autoRunning = true;
-        shooting.startContinuous(SHOOTER_SPEED_FRACTION);
+        shooting.startHoldingIntake();
         routine.schedule();
     }
 

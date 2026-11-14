@@ -29,6 +29,7 @@ public class BioBuzzTeleop extends OpMode {
     // Velocity control uses TeleopConfig defaults; RIGHT/LEFT adjust the selected target.
     private int intakePowerPercent = INITIAL_INTAKE_POWER_PERCENT;
     private boolean intakeLeftWasPressed, intakeRightWasPressed, intakeStartWasPressed;
+    private boolean intakeReverse, intakeDirectionXWasPressed;
     private boolean helperAWasPressed, helperBWasPressed;
     private int helperPowerPercent = INITIAL_INTAKE_HELPER_POWER_PERCENT;
     private boolean helperReverse, helperReverseXWasPressed;
@@ -85,6 +86,8 @@ public class BioBuzzTeleop extends OpMode {
         intakeRunning = false;
         intakeManualStop = false;
         intakePowerPercent = INITIAL_INTAKE_POWER_PERCENT;
+        intakeReverse = false;
+        intakeDirectionXWasPressed = gamepad1.x;
         helperReverse = false;
         helperReverseXWasPressed = gamepad2.x;
         intakeLeftWasPressed = gamepad1.dpad_left;
@@ -105,7 +108,7 @@ public class BioBuzzTeleop extends OpMode {
         rearRight = hardwareMap.get(DcMotor.class, "RRDC");
         telemetry.addLine("Ready: left stick drive/strafe, right stick X turn");
         telemetry.addLine("Gamepad 2: LT starts Pollen sequence; RT stops Pollen/feeder; RIGHT/LEFT adjusts Pollen");
-        telemetry.addLine("Intake G1: LT start / RT stop; D-pad RIGHT +1 / LEFT -1 point. Driving does not start intake.");
+        telemetry.addLine("Intake G1: LT start / RT stop; D-pad RIGHT +1 / LEFT -1 point; X toggles direction. Driving does not start intake.");
         telemetry.addLine("Arm: folded UP; after START: gamepad 1 UP/DOWN presets");
         telemetry.addData("Input shooter motor", "Enabled; waits for Pollen speed or startup timeout. Nectar disabled.");
     }
@@ -223,6 +226,10 @@ public class BioBuzzTeleop extends OpMode {
         intakeLeftWasPressed = gamepad1.dpad_left;
         intakeRightWasPressed = gamepad1.dpad_right;
         intakeStartWasPressed = gamepad1.left_trigger > SHOOTER_TRIGGER_THRESHOLD;
+        // Gamepad 1 X toggles DC intake direction once per press, preserving power/start state.
+        if (gamepad1.x && !intakeDirectionXWasPressed) intakeReverse = !intakeReverse;
+        intakeDirectionXWasPressed = gamepad1.x;
+        telemetry.addData("Intake direction (G1 X)", intakeReverse ? "REVERSE (+power)" : "NORMAL (-power)");
         // Gamepad 2 X toggles only the helper once per press; it never starts a stopped intake.
         if (isIntakeHelperEnabled() && gamepad2.x && !helperReverseXWasPressed) helperReverse = !helperReverse;
         helperReverseXWasPressed = gamepad2.x;
@@ -242,7 +249,7 @@ public class BioBuzzTeleop extends OpMode {
         // Gamepad 1 RT stops intake only; feeder remains governed by the shooting sequence.
 
         boolean intakeOutput = intakeRunning && !intakeManualStop && intakePowerPercent > 0;
-        if (intakeOutput) intake.start(intakePowerPercent / 100.0, false, false);
+        if (intakeOutput) intake.start(intakePowerPercent / 100.0, intakeReverse, false);
         else intake.stop();
         if (feedSequence == FeedSequence.RUNNING) inputDCShooter.start();
         else inputDCShooter.stop();
@@ -270,6 +277,7 @@ public class BioBuzzTeleop extends OpMode {
     }
 
     @Override public void start() {
+        intakeDirectionXWasPressed = gamepad1.x; // Require a fresh press after START.
         teleopStarted = true;
         helperAWasPressed = gamepad2.a;
         helperBWasPressed = gamepad2.b;
