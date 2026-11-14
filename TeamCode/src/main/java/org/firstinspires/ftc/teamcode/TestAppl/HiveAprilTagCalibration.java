@@ -8,6 +8,7 @@
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TestAppl;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.subsystems.test.AprilTagCsvLogger;
@@ -21,6 +22,7 @@ import java.io.File;
  * STOP flushes/closes. Labels are operator observations, NOT classifier predictions.
  * All visible tags are logged (including other hives) to diagnose mistaken tag groups.
  */
+@Disabled
 @TeleOp(name="Hive AprilTag Calibration", group="Calibration")
 public class HiveAprilTagCalibration extends OpMode {
     // Temporary storage test: set false to restore camera calibration.

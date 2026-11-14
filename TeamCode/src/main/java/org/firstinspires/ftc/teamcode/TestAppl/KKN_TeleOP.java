@@ -7,6 +7,7 @@
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TestAppl;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -18,7 +19,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Intake;
 
 
 
-//@Disabled
+@Disabled
 @TeleOp(name="KKN_Teleop")
 //@Autonomous(name="Krak_N_Teleop-2")
 public class KKN_TeleOP extends OpMode {

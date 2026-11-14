@@ -68,7 +68,7 @@ Central tuning files are `config/AutoConfig.java` (all four main Auto programs) 
 | TeleOp wheel command cap | config/TeleopConfig.java — DRIVE_MAX_POWER | 0.25, bounding each wheel's setPower command to +/-0.25; not measured travel speed. |
 | TeleOp normalization | config/TeleopConfig.java — DRIVE_NORMALIZATION_FLOOR | 0.25. This is the normalization floor, not a second independent speed cap; joystick response depends on both values. |
 | TeleOp wheel direction | MecanumDrive.init(): four setDirection calls | FLDC/RLDC FORWARD; FRDC/RRDC REVERSE. Motors use RUN_USING_ENCODER. |
-| TeleOp turning | config/TeleopConfig.java — TURN_DEADBAND, MAX_TURN_INPUT (response calculation remains in BioBuzzTeleop.loop()) | 0.05 deadband, 0.20 maximum input, squared response. Wheel mixing/cap still applies. |
+| TeleOp turning | config/TeleopConfig.java — TURN_DEADBAND, TURN_MAX_POWER (response calculation remains in BioBuzzTeleop.loop()) | 0.05 deadband, 0.10 maximum wheel power when turning alone, squared response. Wheel mixing/cap still applies. |
 | Auto drive limit | config/AutoConfig.java — MAX_PATH_SPEED (read by Pedro Constants) | 0.80 Pedro path-speed setting; not a fixed wheel power or inches/second. Auto does not use MecanumDrive.drive(). |
 | Auto wheel direction/names | Constants.java — drivetrainConfig: frontLeft/backLeft/frontRight/backRight Name and Direction | FLDC/RLDC FORWARD; FRDC/RRDC REVERSE. Separate settings from TeleOp; keep both configurations consistent with wiring. |
 | TeleOp intake initial power | config/TeleopConfig.java — INITIAL_INTAKE_POWER_PERCENT, MAX_INTAKE_POWER_PERCENT, INTAKE_STEP_PERCENT | 90, reset during INIT and whenever D-pad RIGHT starts intake. Gamepad 1 X subtracts 10 and Y adds 10 in loop(), bounded to 0..100%. |
@@ -78,9 +78,9 @@ Central tuning files are `config/AutoConfig.java` (all four main Auto programs) 
 | Feeder direction/mode | InputDCShooter.init() | FORWARD direction, RUN_WITHOUT_ENCODER, BRAKE. Physical rotation combines direction with signed power. |
 | Shooter initial/max selection | config/TeleopConfig.java — INITIAL_SHOOTER_SPEED_PERCENT / MAX_SHOOTER_SPEED_PERCENT / SHOOTER_STEP_PERCENT | 60 / 85. SHOOTER_STEP_PERCENT = 5 controls A/B increments. This 85% cap belongs to TeleOp. |
 | Auto shooter selection | config/AutoConfig.java — SHOOTER_SPEED_FRACTION | 0.60. Each current Auto passes this into shooting.command(...). Auto does not read TeleOp's selected percentage or its 85% cap. |
-| Shooter velocity reference | subsystems/ShooterBBTeleop.java — MAX_VELOCITY_TICKS_PER_SECOND | 2600 ticks/second; not RPM and not a measured physical maximum. 60%=1560; 85%=2210; 5 percentage points=130 ticks/second. |
-| Shooter direction | ShooterBBTeleop.initialize() — shooterMotor.setDirection(...) | REVERSE, with positive velocity targets. |
-| Shooter feedback/mode | ShooterBBTeleop.initialize(), runVelocity() | RUN_USING_ENCODER and setVelocity(), using REV Hub velocity PIDF/configured motor type. No custom kP/kI/kD values are assigned here. FLOAT on stop. |
+| Shooter velocity reference | subsystems/PollenShooter.java — MAX_VELOCITY_TICKS_PER_SECOND | 2600 ticks/second; not RPM and not a measured physical maximum. 60%=1560; 85%=2210; 5 percentage points=130 ticks/second. |
+| Shooter direction | PollenShooter.initialize() — shooterMotor.setDirection(...) | REVERSE, with positive velocity targets. |
+| Shooter feedback/mode | PollenShooter.initialize(), runVelocity() | RUN_USING_ENCODER and setVelocity(), using REV Hub velocity PIDF/configured motor type. No custom kP/kI/kD values are assigned here. FLOAT on stop. |
 | Arm up/intermediate/down | subsystems/IntakeArmSingleServo.java — UP_DEGREES, INTERMEDIATE_DEGREE, DOWN_DEGREES | 30 / 135 / 150 degrees; shared by Auto and TeleOp. INIT commands UP. Flower Auto calls liftDown(), so it uses 150, not INTERMEDIATE_DEGREE. |
 | Arm direction/calibration | IntakeArmSingleServo.java — DIRECTION, FLOOR_OFFSET_DEGREES, SERVO_RANGE_DEGREES; init() PWM range | FORWARD, offset 0, range 300 degrees, PWM 500..2500 microseconds. Command position = (offset + degrees) / 300. These are commanded servo angles, not measured physical arm angles. |
 
@@ -156,3 +156,44 @@ All in `AutoConfig`: `GARDEN_FIRST_SHOOT_SECONDS` (6), `GARDEN_SECOND_SHOOT_SECO
 **Waypoint timeout (all ten main AutoAppl modes):** AutoConfig.WAYPOINT_TIMEOUT_SECONDS = 3.0 starts separately for each buildMoveCommand. On timeout the follower stops and the sequence advances, including a following collection or shooting action even if the target was not reached. Each next waypoint path starts at live odometry. Telemetry preserves the last timeout and a timeout count. Shooting, intake waits, hive waits, and arm delays are unchanged. Flower's existing timed backward test retains its own duration. No new position tolerance, rotation/freeze watchdog, or sensor-health checks were added. Existing overall deadlines still apply. Timeout is not proof of arrival; validate routes before relying on automatic continuation.
 
 **Gamepad 2 shooter triggers:** LT above 50% starts the existing shooter-then-feeder sequence once per press; release does not stop shooting. RT above 50% stops feeder then shooter using the existing stop delay and wins if both triggers are pressed. Trigger depth does not set speed; A/B remain speed controls. Controller START/BACK no longer start/stop shooting. Triggers held during INIT/Driver Station START do not initiate shooting until released and pressed again.
+
+### TeleOp joystick sensitivity
+Forward/backward and strafe use DRIVE_DEADBAND = 0.05 and DRIVE_RESPONSE_EXPONENT = 2.0 in config/TeleopConfig.java. Set exponent to 1.0 for linear response. DRIVE_NORMALIZATION_FLOOR = 1.0 preserves full stick travel before the DRIVE_MAX_POWER = 0.25 cap. Turning keeps its squared input curve; TURN_MAX_POWER = 0.10 sets the maximum wheel power when turning alone, capped by DRIVE_MAX_POWER. Combined translation and turning are normalized. No acceleration ramp is applied; releasing the stick commands zero immediately.
+
+### Shooter speed button mapping update
+Gamepad 2 D-pad RIGHT increases shooter target speed by 5 percentage points per press; D-pad LEFT decreases it. These replace A/B speed controls. Holding changes once; simultaneous LEFT+RIGHT is ignored. LT/RT shooting sequence and D-pad UP/DOWN arm adjustment remain unchanged.
+
+### Shooter shot calibration CSV
+Select **Shooter Shot Calibration** (Calibration group). This separate TestAppl OpMode inherits BioBuzzTeleop controls, including motor/servo initialization and arm UP at INIT. It also initializes Pinpoint with the autonomous configuration and starts Limelight pipeline 0. Keep the robot still during INIT. START sets the local odometry origin to (0,0,0); coordinates from separate sessions need the same physical starting reference to be compared.
+
+Drive and shoot normally. After a successful shot, keep the robot at that position and press **Gamepad 1 A**. One new press saves one CSV row; holding A does not repeat. No samples are taken during INIT. Gamepad 2 D-pad LEFT/RIGHT still adjusts shooter speed; LT starts shooter then feeder and RT stops them using the existing delays. This logger does not perform automatic aiming, hive classification or shot detection.
+
+CSV files are created at INIT in `/sdcard/FIRST/logs/shooter-calibration/`. The full filename and successful capture count appear in telemetry. Each capture is flushed immediately; STOP closes the file and stops the camera. Missing camera/odometry readings are marked; camera results older than 250 ms, invalid results or wrong-pipeline results do not populate tag measurements. Raw odometry availability does not establish sensor health or stationary status. A hard power loss can still lose data despite flushing.
+
+Columns include sample ID, host timestamp (hub clock may be wrong), monotonic elapsed seconds, operator-reported success, manual attempts/hits/notes, local robot pose in inches/degrees, selected shooter speed percentage, current target/measured encoder velocity, SDK power command, minimum positive reported hub voltage, camera status/frame age and visible IDs. Tags 30 through 45 each have their own camera-relative XYZ in meters, roll/pitch/yaw and tx/ty in degrees. Blank 3D fields mean absent/unusable pose; tag size and Full 3D targeting must be configured for meaningful distance. These are raw tag poses, not corrected shooter-to-hive-opening distances.
+
+All measurements are **at A press**, not at ball release. If the shooter was stopped before capture, target/measured speed may be zero; selected speed remains recorded. For a batch of 10 attempts with 3 hits, record attempts=10 and hits=3 manually on a representative row and avoid counting the batch repeatedly on every success row. No misses are automatically inferred.
+
+With the laptop connected to Control Hub Wi-Fi, retrieve using Android SDK platform-tools (adb):
+```text
+adb connect 192.168.43.1:5555
+adb pull /sdcard/FIRST/logs/shooter-calibration ./shooter-calibration
+```
+With multiple adb devices, select the hub with `adb -s 192.168.43.1:5555 pull ...`. CSV files open in Excel or Google Sheets. Update calibration files only after copying them off the hub.
+Shot calibration alliance selection: during INIT, Gamepad 1 LB selects RED (IDs 30-37), RB selects BLUE (IDs 38-45). Default is RED. START locks the choice for that run. CSV includes an alliance column; opposing and non-hive IDs are omitted from visible IDs, live tag telemetry and pose fields. If only opposing tags are visible, A still saves the operator marker and shooter/odometry readings but camera_status is NO_ALLIANCE_TAG and all tag fields are blank. Select STOP/INIT to change alliance. Both alliances use the same calibration OpMode.
+
+### Current dual-shooter TeleOp controls
+PollenShooter replaces ShooterBBTeleop; its hardware name remains `shooter`. Autonomous still initializes only PollenShooter with unchanged velocity behavior. NectarShooter is TeleOp-only (including the inherited Shooter Shot Calibration test) and requires the encoder-equipped motor named `nectarShooter`.
+
+Gamepad 2: LT starts pollen and nectar together, then the shared feeder after SHOOTER_START_DELAY_SECONDS (1 second). RT stops the feeder immediately, then both shooters after SHOOTER_STOP_DELAY_SECONDS (1 second). Holding RT does not restart the stop timer. OpMode STOP stops all three immediately. The start delay is not an actual-velocity readiness check.
+
+D-pad RIGHT/LEFT increases/decreases pollen target speed; UP/DOWN increases/decreases nectar target speed. Each press changes 2 percentage points, holding does not repeat, opposite buttons on the same axis are ignored. Setting either shooter speed to zero stops both shooters and the feeder; LT cannot start until both selected speeds are positive. Raising speed while stopped does not start the motors. Gamepad 2 no longer adjusts the intake arm; Gamepad 1 UP/DOWN retains arm presets. Gamepad 2 X retains intake reversal.
+
+TeleopConfig: INITIAL_SHOOTER_SPEED_PERCENT=60, MAX_SHOOTER_SPEED_PERCENT=85, SHOOTER_STEP_PERCENT=2; INITIAL_NECTAR_SPEED_PERCENT=60, MAX_NECTAR_SPEED_PERCENT=85, NECTAR_STEP_PERCENT=2. Both are velocity percentages, not fixed power. Each shooter class has its own MAX_VELOCITY_TICKS_PER_SECOND=2600 and motor direction REVERSE, initially matching the original shooter. Both use RUN_USING_ENCODER with the hub/configured motor's velocity PIDF; no new custom PIDF coefficients were added. Verify the nectar encoder, configured motor type, direction and attainable speed on hardware.
+
+Shooter Shot Calibration inherits both motors and records nectar selected/target/measured velocity and SDK power in additional CSV columns. Existing unprefixed shooter CSV columns continue to describe pollen.
+### Continuous intake helper
+Configure a continuous-rotation servo named exactly IntakeHelperServo. Program the physical servo for continuous mode. IntakeHelperServo.java defines RUN_POWER=0.80 and DIRECTION=FORWARD; reverse DIRECTION if normal operation runs outward. Intake initializes both actuators stopped, starts the helper at fixed 80% for any nonzero intake DC command, reverses it with intake reversal, and stops it when intake stops or its selected power is zero. DC speed settings and existing autonomous/TeleOp sequencing are unchanged. Every OpMode initializing Intake now requires this servo mapping; servo-only arm tests do not initialize it.
+
+### TeleOp intake helper adjustment
+Gamepad 2 A increases helper servo power by 2 percentage points; B decreases it by 2. Range is 0-100%, default 80% each INIT. Hold does not repeat; A+B and START/BACK pairing chords are ignored. Changes affect a running helper immediately on the next intake command; adjusting while stopped does not start it. Gamepad 1 RIGHT/LEFT still starts/stops both intake actuators; RIGHT resets DC power only and retains helper selection. Reversal still applies to both. Autonomous retains the helper's default 80%. TeleopConfig defines INITIAL_INTAKE_HELPER_POWER_PERCENT and INTAKE_HELPER_STEP_PERCENT.

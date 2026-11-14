@@ -23,7 +23,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 public class InputDCShooter {
     public static final String HARDWARE_NAME = "inputShooterServo";
     private DcMotor motor;
-    private double runningPower = -0.50;
+    private double runningPower = -0.60;
     private boolean running;
 
     public void init(HardwareMap hardwareMap) {

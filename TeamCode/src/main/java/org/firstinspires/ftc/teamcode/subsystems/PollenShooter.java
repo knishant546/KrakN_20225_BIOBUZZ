@@ -1,5 +1,5 @@
 /* ============================================================================
- * Class: ShooterBBTeleop
+ * Class: PollenShooter
  * What it does:
  *   Controls shooter encoder velocity through REV Hub PIDF for TeleOp and autonomous shooting.
  * Applications using it:
@@ -22,15 +22,15 @@ import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.ftc.ActiveOpMode;
 
 /** Encoder velocity control using the REV Hub velocity PIDF and configured motor type. */
-public class ShooterBBTeleop implements Subsystem {
+public class PollenShooter implements Subsystem {
     public static final double MAX_VELOCITY_TICKS_PER_SECOND = 2600;
-    private static final ShooterBBTeleop INSTANCE = new ShooterBBTeleop();
+    private static final PollenShooter INSTANCE = new PollenShooter();
     private DcMotorEx shooterMotor;
     private double targetVelocity = 0;
     private double speedFactor = 1;
 
-    public static ShooterBBTeleop getInstance() { return INSTANCE; }
-    private ShooterBBTeleop() { }
+    public static PollenShooter getInstance() { return INSTANCE; }
+    private PollenShooter() { }
 
     @Override public void initialize() { initialize(ActiveOpMode.hardwareMap()); }
 
@@ -39,7 +39,7 @@ public class ShooterBBTeleop implements Subsystem {
         shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
         shooterMotor.setPower(0);
         // Reverse physical rotation while keeping positive velocity commands.
-        shooterMotor.setDirection(DcMotor.Direction.REVERSE);
+        shooterMotor.setDirection(DcMotor.Direction.FORWARD);
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -106,6 +106,6 @@ public class ShooterBBTeleop implements Subsystem {
         return new InstantCommand(this::stopImmediately).requires(this);
     }
     private void requireInitialized() {
-        if (shooterMotor == null) throw new IllegalStateException("Initialize ShooterBBTeleop before use");
+        if (shooterMotor == null) throw new IllegalStateException("Initialize PollenShooter before use");
     }
 }

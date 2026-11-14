@@ -26,10 +26,10 @@ import com.qualcomm.robotcore.hardware.ServoImplEx;
 public class IntakeArmSingleServo {
     public static final String HARDWARE_NAME = "intakeServo";
     private static final double SERVO_RANGE_DEGREES = 300.0;
-    public static final double DOWN_DEGREES = 150.0;
+    public static final double DOWN_DEGREES = 140.0;
     // Tunable intermediate arm command angle.
     public static final double INTERMEDIATE_DEGREE = 135.0;
-    public static final double UP_DEGREES = 30.0;
+    public static final double UP_DEGREES = 20.0;
 
     // Servo command angles for the current horn mounting, not measured arm angles.
     // Smaller values raise the arm: UP=30, intermediate=135, DOWN=90.

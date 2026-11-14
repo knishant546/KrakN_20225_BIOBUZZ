@@ -5,6 +5,7 @@
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TestAppl;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.PwmControl;
@@ -13,6 +14,7 @@ import com.qualcomm.robotcore.hardware.ServoImplEx;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeArmSingleServo;
 
 /** Command display only: a three-wire servo does not report physical arm angle. */
+@Disabled
 @TeleOp(name = "IntakeServoCalibration", group = "Test")
 public class IntakeServoCalibration extends OpMode {
     private static final double RANGE_DEGREES = 300.0;

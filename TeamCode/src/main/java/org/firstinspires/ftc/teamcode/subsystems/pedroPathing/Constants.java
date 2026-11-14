@@ -89,7 +89,7 @@ public class Constants {
             c -> {
                 c.name.set("pinpoint");
 
-                c.xPodOffset.set(0.1);
+                c.xPodOffset.set(3.5);
                 c.yPodOffset.set(2.5);
 
                 c.offsetUnits.set(DistanceUnit.INCH);

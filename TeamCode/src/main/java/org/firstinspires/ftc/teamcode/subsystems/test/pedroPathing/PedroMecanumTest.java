@@ -15,6 +15,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 
+@com.qualcomm.robotcore.eventloop.opmode.Disabled
 @TeleOp(name = "Pedro Mecanum Test")
 public class PedroMecanumTest extends LinearOpMode {
 
