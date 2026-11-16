@@ -5,11 +5,11 @@
  * Applications using it:
  *   No application references found in current teamcode sources.
  * ============================================================================ */
-package org.firstinspires.ftc.teamcode.subsystems.test;
+package org.firstinspires.ftc.teamcode.subsystems.testClasses;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 
-import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.ColorSensor;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

@@ -14,7 +14,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 
 import org.firstinspires.ftc.teamcode.subsystems.MecanumDrive;
-import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.ColorSensor;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 
 

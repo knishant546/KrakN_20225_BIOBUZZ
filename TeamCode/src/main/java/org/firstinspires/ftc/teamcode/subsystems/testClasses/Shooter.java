@@ -16,7 +16,7 @@
  *   RED_AutoGarden
  *   Includes indirect/source dependencies; optional features may be inactive.
  * ============================================================================ */
-package org.firstinspires.ftc.teamcode.subsystems.test;
+package org.firstinspires.ftc.teamcode.subsystems.testClasses;
 
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.hardware.DcMotor;

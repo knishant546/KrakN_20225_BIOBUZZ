@@ -6,6 +6,7 @@
  *   BLUE_AutoGarden (Driver Station entry point).
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.AutoAppl;
+import org.firstinspires.ftc.teamcode.Logging.RunTelemetryLogger;
 
 import static com.pedropathing.api.Paths.line;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
@@ -33,6 +34,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 
 @Autonomous(name = "BLUE_AutoGarden")
 public class BLUE_AutoGarden extends NextFTCOpMode {
+    private RunTelemetryLogger runLog = new RunTelemetryLogger();
 
     // Pedro 3 recommended pose creation API.
     private final PoseFactory p = PoseFactory.degrees();
@@ -101,6 +103,7 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
         final String movementLabel = "Waypoint to " + toPosition.x() + ", " + toPosition.y();
         return new LambdaCommand(movementLabel)
                 .setStart(() -> {
+                    shooting.closeGateKeepMotors();
                     autoStatus = movementLabel;
                     timedOut[0] = false;
                     // Previous leg may have timed out: use measured pose instead of its target.
@@ -127,7 +130,7 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
     }
     private Command buildTurnCommand(Pose targetPose) {
         return new LambdaCommand("PedroTurn")
-                .setStart(() -> follower.hold(targetPose))
+                .setStart(() -> { shooting.closeGateKeepMotors(); follower.hold(targetPose); })
                 .setIsDone(() -> {
                     double headingError = Math.atan2(
                             Math.sin(targetPose.heading() - follower.pose().heading()),
@@ -201,7 +204,7 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
 
     private void prepareParking() {
         parkingStarted = true;
-        shooting.stopShootingKeepIntake();
+        shooting.closeGateKeepMotors();
         arm.liftUp();
         hiveTags.stop();
         autoStatus = "Parking";
@@ -258,8 +261,8 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
                 buildMoveCommand(flowerStart, flowerReached),
                 buildTimedSlideInCommand(flowerSlideIn, "Flower slide-in"),
                 new Delay(GARDEN_FLOWER_COLLECTION_SECONDS),
-                // Keep intake running during return; Pollen and feeder remain off.
-                new InstantCommand(shooting::stopShootingKeepIntake),
+                // Gate stays closed during return; all three motors keep running.
+                new InstantCommand(shooting::closeGateKeepMotors),
                 buildMoveCommand(flowerSlideIn, flowerBackout, GARDEN_FLOWER_BACKOUT_TIMEOUT_SECONDS),
                 // Fold after backing out, before returning to the shooting position.
                 new InstantCommand(arm::liftUp),
@@ -272,15 +275,15 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
         return new SequentialGroup(
                 buildMoveCommand(startPose, shootingPose),
                 shooting.positionShotCommand(GARDEN_FULL_FIRST_SHOOT_SECONDS, () -> atShootingPosition(shootingPose)),
-                // Keep intake running; Pollen and feeder remain off during travel.
-                new InstantCommand(shooting::stopShootingKeepIntake),
+                // Gate stays closed during travel; Pollen, feeder and intake keep running.
+                new InstantCommand(shooting::closeGateKeepMotors),
                 buildMoveCommand(shootingPose, gardenApproach),
                 buildMoveCommand(gardenApproach, gardenPos, GARDEN_REACH_TIMEOUT_SECONDS),
                 buildTimedSlideInCommand(gardenSlideIn, "Garden slide-in"),
                 // Collect at slide-in; intake remains on during return and hive check.
                 new Delay(GARDEN_COLLECTION_SECONDS),
-                // Keep intake running during return; Pollen and feeder remain off.
-                new InstantCommand(shooting::stopShootingKeepIntake),
+                // Gate stays closed during return; all three motors keep running.
+                new InstantCommand(shooting::closeGateKeepMotors),
                 buildMoveCommand(gardenSlideIn, gardenSlideOut, GARDEN_SLIDE_OUT_TIMEOUT_SECONDS),
                 buildMoveCommand(gardenSlideOut, shootingHome),
                 buildGardenHiveWaitCommand(),
@@ -302,11 +305,13 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
     }
     @Override
     public void onInit() {
+        runLog = new RunTelemetryLogger();
+        telemetry = runLog.attach(telemetry, getClass().getSimpleName());
         autoRunning = false;
         parkingStarted = false;
         deadlinePark = null;
         buildPath();
-        shooting.init(hardwareMap, false); // Garden: helper disabled; feeder runs only during speed-gated shooting.
+        shooting.init(hardwareMap); // Includes positional gate, CLOSED during INIT.
         arm.init(hardwareMap); // Start folded; the optional flower trip lowers and then folds the arm.
         hiveTags = new HiveUpTagIDLogic(hardwareMap, HiveUpTagIDLogic.Alliance.BLUE);
         hiveTags.start();
@@ -324,14 +329,17 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
 
     @Override
     public void onUpdate() {
+        runLog.updateToggle(gamepad1.back);
         // REQUIRED: Pedro 3 follower must be updated every OpMode loop.
         follower.update();
+        shooting.update(); // Keep startup/recovery active during travel and hive waits.
         enforceAutoDeadline();
         telemetry.addData("Auto status", autoStatus);
         telemetry.addData("Auto seconds remaining", "%.1f", autoRunning
                 ? Math.max(0, AUTO_LIMIT_SECONDS - (System.nanoTime() - autoStartedAt) / 1e9) : 0);
 
         telemetry.addData("Shooting sequence", shooting.getStatus());
+        shooting.addTelemetry(telemetry);
         telemetry.addData("Garden hive check", hiveResult);
         telemetry.addData("Intake arm target (deg)", arm.getCommandedDegrees());
         telemetry.addData("Garden tag IDs", hiveTags.getGardenTags());
@@ -343,15 +351,19 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
         telemetry.addData("Waypoint timeouts", waypointTimeoutCount);
         telemetry.addData("Last waypoint timeout", lastWaypointTimeout);
         hiveTags.addDiagnostics(telemetry);
+        runLog.sample(hardwareMap, telemetry);
         telemetry.update();
     }
 
     @Override
     public void onStartButtonPressed() {
+        runLog.beginRun(gamepad1.back);
+        runLog.event("lifecycle", "START");
         autoStartedAt = System.nanoTime();
         autoRunning = true;
         autoStatus = "Scoring sequence";
-        shooting.startHoldingIntake();
+        // START spins Pollen and intake; feeder waits for speed/timeout, gate waits for a shot.
+        shooting.startAuto();
         routine.schedule();
     }
 
@@ -365,5 +377,6 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
         if (follower != null) {
             follower.stop();
         }
+        runLog.close();
     }
 }

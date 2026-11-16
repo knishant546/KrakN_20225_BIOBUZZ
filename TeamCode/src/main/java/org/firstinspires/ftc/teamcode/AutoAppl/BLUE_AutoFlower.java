@@ -6,6 +6,7 @@
  *   BLUE_AutoFlower (Driver Station entry point).
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.AutoAppl;
+import org.firstinspires.ftc.teamcode.Logging.RunTelemetryLogger;
 
 import static com.pedropathing.api.Paths.line;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
@@ -21,6 +22,7 @@ import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.delays.Delay;
 import dev.nextftc.core.commands.groups.SequentialGroup;
+import dev.nextftc.core.commands.conditionals.IfElseCommand;
 import dev.nextftc.core.commands.utility.InstantCommand;
 import dev.nextftc.core.commands.utility.LambdaCommand;
 import dev.nextftc.core.components.BindingsComponent;
@@ -30,6 +32,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 /** Flower routine in the same start-relative coordinate frame as BLUE_AutoGarden. */
 @Autonomous(name = "BLUE_AutoFlower")
 public class BLUE_AutoFlower extends NextFTCOpMode {
+    private RunTelemetryLogger runLog = new RunTelemetryLogger();
     // Straight is -X as in BLUE_AutoGarden; opposite strafe is +Y. All headings remain zero.
     private Pose startPose;
     private Pose flwrPos1;
@@ -52,6 +55,7 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
     private long autoStartedAt;
     private boolean autoRunning, parkingStarted;
     private String stage = "Ready";
+    private String flowerTripDecision = "Not checked";
     // Test only: stop the backward leg after one second, regardless of follower busy state.
     private long backwardStartedAt;
 
@@ -78,6 +82,7 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
         final String movementLabel = label;
         return new LambdaCommand(movementLabel)
                 .setStart(() -> {
+                    shooting.closeGateKeepMotors();
                     stage = movementLabel;
                     timedOut[0] = false;
                     // Previous leg may have timed out: use measured pose instead of its target.
@@ -109,6 +114,7 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
         return new LambdaCommand("Timed backward test")
                 .setStart(() -> {
                     stage = "Backward timed test: " + BACKWARD_TEST_SECONDS + " seconds";
+                    shooting.closeGateKeepMotors();
                     backwardStartedAt = System.nanoTime();
                     follower.follow(path);
                 })
@@ -120,11 +126,11 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
         return new InstantCommand(() -> stage = label);
     }
 
-    /** First shot: require >=2 Flower tags for 3 continuous seconds, or shoot on the 10-second timeout. */
+    /** First shot: require >=2 Flower tags for 3 seconds of stability (brief gaps pause), or shoot at 7 seconds. */
     private Command buildHiveWaitCommand() {
         return new LambdaCommand("Wait for BLUE Flower hive")
                 .setStart(() -> {
-                    shooting.stopShootingKeepIntake();
+                    shooting.closeGateKeepMotors();
                     hiveTags.reset();
                     hiveWaitStartedAt = System.nanoTime();
                     hiveGateDone = false;
@@ -138,14 +144,14 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
                     hiveGateDone = hiveTags.isFlowerStable(HIVE_SETTLE_SECONDS);
                     hiveGateResult = String.format("Flower stability %.2f / %.2f s; tags %s (brief gaps pause)",
                             hiveTags.getFlowerStableSeconds(), HIVE_SETTLE_SECONDS, hiveTags.getFlowerTags());
-                    // Preserve the user's unconditional fallback at the overall ten-second limit.
+                    // Preserve the user's unconditional fallback at the overall seven-second limit.
                     if (!hiveGateDone && (now - hiveWaitStartedAt) / 1e9 >= HIVE_WAIT_TIMEOUT_SECONDS) {
                         hiveGateResult = HIVE_WAIT_TIMEOUT_SECONDS + "-second timeout: shooting WITHOUT UP confirmation";
                         hiveGateDone = true;
                     }
                 })
                 .setIsDone(() -> hiveGateDone)
-                .setStop(interrupted -> { if (interrupted) shooting.stopShootingKeepIntake(); });
+                .setStop(interrupted -> { if (interrupted) shooting.closeGateKeepMotors(); });
     }
     /** Stop scoring before parking, including when a deadline interrupts a command. */
     /** Same measured arrival tolerances as Garden; path timeout alone cannot allow feeding. */
@@ -168,7 +174,7 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
 
     private void prepareParking() {
         parkingStarted = true;
-        shooting.stopShootingKeepIntake();
+        shooting.closeGateKeepMotors();
         arm.liftUp();
         hiveTags.stop();
         stage = "Parking";
@@ -199,16 +205,18 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
         }
     }
 
-    private Command autonomousRoutine() {
+    /** Decide once immediately after shot one, using time remaining in the 30-second Auto. */
+    private boolean hasTimeForFlowerTrip() {
+        double remaining = AUTO_LIMIT_SECONDS - (System.nanoTime() - autoStartedAt) / 1e9;
+        boolean proceed = remaining >= FLOWER_TRIP_MIN_REMAINING_SECONDS;
+        flowerTripDecision = String.format("%.2f s remaining: %s (minimum %.1f s)",
+                remaining, proceed ? "collect Flower" : "skip Flower and park",
+                FLOWER_TRIP_MIN_REMAINING_SECONDS);
+        return proceed;
+    }
+
+    private Command buildFlowerTripCommand() {
         return new SequentialGroup(
-                buildMoveCommand(startPose, flwrPos1, "Move straight 1 inch to FlwrPos1"),
-                buildHiveWaitCommand(),
-                stage("FlwrPos1: shoot at " + (SHOOTER_SPEED_FRACTION * 100) + "% speed"),
-                // Start Pollen only at confirmed position; feeder waits for speed or startup timeout.
-                shooting.positionShotCommand(FLOWER_FIRST_SHOOT_SECONDS, this::atShootingPosition),
-                // Shot command stops Pollen/feeder; stay here while the wheel coasts down.
-                stage("First shot complete: 2-second coast-down; intake holding"),
-                new Delay(FLOWER_POST_SHOT_COAST_SECONDS),
                 buildMoveCommand(flwrPos1, straightEnd, "Move straight 9 more inches"),
                 buildMoveCommand(straightEnd, strafeEnd, "Strafe 10 inches opposite BLUE_AutoGarden"),
                 stage("Arm down to " + IntakeArmSingleServo.DOWN_DEGREES + " degrees; wait " + FLOWER_ARM_PAUSE_SECONDS + " seconds"),
@@ -217,19 +225,32 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
                 new Delay(FLOWER_ARM_PAUSE_SECONDS),
                 // Use the timed backward workaround; do not wait for Pedro busy/completion feedback.
                 buildTimedBackwardCommand(),
-                // Intake remains running; Pollen and feeder are OFF throughout collection.
-                stage("Flower: collect for 2 seconds; intake running, Pollen + feeder OFF"),
-                new InstantCommand(shooting::stopShootingKeepIntake),
+                // All motors keep running; the closed gate prevents shooting during collection.
+                stage("Flower: collect for 2 seconds; motors running, gate CLOSED"),
+                new InstantCommand(shooting::closeGateKeepMotors),
                 new Delay(FLOWER_COLLECTION_SECONDS),
-                // Keep intake holding during return; Pollen and feeder stay off.
-                new InstantCommand(shooting::stopShootingKeepIntake),
+                // Keep all motors running during return with the gate closed.
+                new InstantCommand(shooting::closeGateKeepMotors),
                 buildMoveCommand(flwrPos2, strafeEnd, "Return to (-10, 10), arm down"),
                 new InstantCommand(arm::liftUp),
                 buildMoveCommand(strafeEnd, straightEnd, "Retrace strafe to (-10, 0), arm up"),
                 buildMoveCommand(straightEnd, flwrPos1, "Return to first shooting position (-1, 0)"),
                 stage("FlwrPos1: second shot; no additional hive check"),
-                // Repeat speed-gated shooting at home; total duration includes spin-up/recovery pauses.
-                shooting.positionShotCommand(FLOWER_SECOND_SHOOT_SECONDS, this::atShootingPosition),
+                // Count shot duration from gate opening; recovery closes gate without extending duration.
+                shooting.positionShotCommand(FLOWER_SECOND_SHOOT_SECONDS, this::atShootingPosition)
+        );
+    }
+
+    private Command autonomousRoutine() {
+        return new SequentialGroup(
+                buildMoveCommand(startPose, flwrPos1, "Move straight 1 inch to FlwrPos1"),
+                buildHiveWaitCommand(),
+                stage("FlwrPos1: shoot at " + (SHOOTER_SPEED_FRACTION * 100) + "% speed"),
+                // Open gate only at confirmed position after the existing hive gate permits the shot.
+                shooting.positionShotCommand(FLOWER_FIRST_SHOOT_SECONDS, this::atShootingPosition),
+                new IfElseCommand(this::hasTimeForFlowerTrip,
+                        buildFlowerTripCommand(),
+                        stage("Less than 15 seconds remain: skip Flower and park")),
                 // Vision is no longer needed: stop polling before driving to parking.
                 new InstantCommand(this::prepareParking),
                 buildMoveCommand(flwrPos1, exitStraight, "Move straight 10 inches after shooting"),
@@ -239,11 +260,14 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
     }
 
     @Override public void onInit() {
+        runLog = new RunTelemetryLogger();
+        telemetry = runLog.attach(telemetry, getClass().getSimpleName());
         autoRunning = false;
         parkingStarted = false;
+        flowerTripDecision = "Not checked";
         deadlinePark = null;
         buildPath();
-        shooting.init(hardwareMap, false); // No helper hardware or movement in Flower.
+        shooting.init(hardwareMap); // Includes positional gate, CLOSED during INIT.
         hiveTags = new HiveUpTagIDLogic(hardwareMap, HiveUpTagIDLogic.Alliance.BLUE);
         hiveTags.start();
         arm.init(hardwareMap); // Fold up during INIT.
@@ -254,19 +278,26 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
     }
 
     @Override public void onStartButtonPressed() {
+        runLog.beginRun(gamepad1.back);
+        runLog.event("lifecycle", "START");
         autoStartedAt = System.nanoTime();
         autoRunning = true;
-        shooting.startHoldingIntake();
+        // START spins Pollen and intake; feeder waits for speed/timeout, gate waits for a shot.
+        shooting.startAuto();
         routine.schedule();
     }
 
     @Override public void onUpdate() {
+        runLog.updateToggle(gamepad1.back);
         follower.update();
+        shooting.update(); // Keep startup/recovery active during travel and hive waits.
         enforceAutoDeadline();
         telemetry.addData("Auto seconds remaining", "%.1f", autoRunning
                 ? Math.max(0, AUTO_LIMIT_SECONDS - (System.nanoTime() - autoStartedAt) / 1e9) : 0);
         telemetry.addData("BLUE_AutoFlower stage", stage);
         telemetry.addData("Shooting sequence", shooting.getStatus());
+        shooting.addTelemetry(telemetry);
+        telemetry.addData("Flower trip decision", flowerTripDecision);
         telemetry.addData("Hive gate result", hiveGateResult);
         telemetry.addData("Hive gate observation", hiveTags.getStatus());
         telemetry.addData("BLUE Flower IDs (38-41)", hiveTags.getFlowerTags());
@@ -279,6 +310,7 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
         telemetry.addData("Waypoint timeouts", waypointTimeoutCount);
         telemetry.addData("Last waypoint timeout", lastWaypointTimeout);
         hiveTags.addDiagnostics(telemetry);
+        runLog.sample(hardwareMap, telemetry);
         telemetry.update();
     }
 
@@ -289,5 +321,6 @@ public class BLUE_AutoFlower extends NextFTCOpMode {
         if (hiveTags != null) hiveTags.stop();
         shooting.stop();
         if (follower != null) follower.stop();
+        runLog.close();
     }
 }

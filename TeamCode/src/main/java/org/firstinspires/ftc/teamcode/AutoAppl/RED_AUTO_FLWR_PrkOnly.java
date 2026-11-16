@@ -5,6 +5,7 @@
  * Applications using it: RED_AUTO_FLWR_PrkOnly (Driver Station entry point).
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.AutoAppl;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterGateServo;
 
 import static com.pedropathing.api.Paths.line;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
@@ -23,6 +24,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 
 @Autonomous(name = "RED_AUTO_FLWR_PrkOnly")
 public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
+    private final ShooterGateServo gate = new ShooterGateServo();
     private String lastMovementResult = "None";
     private String lastWaypointTimeout = "None";
     private int waypointTimeoutCount;
@@ -68,6 +70,7 @@ public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
     }
 
     @Override public void onInit() {
+        gate.init(hardwareMap); // Parking-only: close gate, never start scoring motors.
         running = false;
         follower = Constants.createFollower(hardwareMap);
         Pose start = START.pose();
@@ -83,7 +86,7 @@ public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
                     running = false;
                     stage = "Parking path complete";
                 }));
-        stage = "Ready: START to park; mechanisms are not initialized";
+        stage = "Ready: START to park; gate CLOSED; scoring motors not initialized";
     }
 
     @Override public void onStartButtonPressed() {
@@ -115,6 +118,7 @@ public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
     }
 
     @Override public void onStop() {
+        gate.close();
         running = false;
         if (routine != null) routine.cancel();
         if (follower != null) follower.stop();

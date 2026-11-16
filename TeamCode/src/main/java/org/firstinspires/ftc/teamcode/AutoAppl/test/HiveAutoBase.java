@@ -18,7 +18,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.*;
 import com.qualcomm.hardware.limelightvision.*;
 import org.firstinspires.ftc.robotcore.external.navigation.*;
-import org.firstinspires.ftc.teamcode.subsystems.test.ShooterNew;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.ShooterNew;
 import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 import java.util.*;
 

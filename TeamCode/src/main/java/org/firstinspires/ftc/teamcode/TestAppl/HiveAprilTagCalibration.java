@@ -11,8 +11,8 @@ package org.firstinspires.ftc.teamcode.TestAppl;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import org.firstinspires.ftc.teamcode.subsystems.test.AprilTagCsvLogger;
-import org.firstinspires.ftc.teamcode.subsystems.test.ApriltagDetector;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.AprilTagCsvLogger;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.ApriltagDetector;
 import java.io.File;
 
 /** Currently defaults to a hardware-free INIT file-write test (LOG_FILE_TEST_ONLY).

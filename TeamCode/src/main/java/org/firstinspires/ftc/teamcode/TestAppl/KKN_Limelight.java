@@ -13,10 +13,10 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 
-import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
-import org.firstinspires.ftc.teamcode.subsystems.test.LimelightTracker;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.LimelightTracker;
 import org.firstinspires.ftc.teamcode.subsystems.MecanumDrive;
-import org.firstinspires.ftc.teamcode.subsystems.test.AprilTagCsvLogger;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.AprilTagCsvLogger;
 import java.io.File;
 @Disabled
 @TeleOp(name="Krak_N_Auto-2.1")

@@ -64,6 +64,16 @@ public class PollenShooter implements Subsystem {
         targetVelocity = ticksPerSecond;
     }
 
+    /** TeleOp direction selection: preserve target magnitude and stopped/running state.
+     * initialize() restores FORWARD for each OpMode, including autonomous.
+     */
+    public void setReversed(boolean reversed) {
+        requireInitialized();
+        double savedTarget = targetVelocity;
+        stopImmediately();
+        shooterMotor.setDirection(reversed ? DcMotor.Direction.REVERSE : DcMotor.Direction.FORWARD);
+        if (savedTarget > 0) runVelocity(savedTarget);
+    }
     public double getTargetVelocity() { return targetVelocity; }
     public double measuredVelocity() {
         requireInitialized();

@@ -16,14 +16,15 @@ public final class AutoConfig {
     public static final double INTAKE_POWER = 0.90;
     public static final double FEEDER_POWER = -0.50; // Signed DC motor power.
     public static final double MAX_PATH_SPEED = 1.00;
-    public static final double FEEDER_DELAY_SECONDS = 1.0;
-    // Auto shooting: shooter first, then DC intake; feeder/helper remain off.
+    public static final double GATE_OPEN_DELAY_SECONDS = 0.5; // At authorized pose, and after feeder starts.
+    public static final double FEEDER_DELAY_SECONDS = 1.0; // Legacy drafts only.
+    // Legacy draft delay; current AutoShootSequence starts intake immediately after Pollen.
     public static final double SHOOTER_TO_INTAKE_DELAY_SECONDS = 2.0;
     public static final double DEFAULT_SHOOT_SECONDS = 6.0;
     public static final double PARK_DEADLINE_SECONDS = 24.0;
     // Driving only: collection, shooting, and vision waits use separate timers.
     public static final double WAYPOINT_TIMEOUT_SECONDS = 3.0;
-    // Garden feeding requires measured arrival, even after a movement timeout.
+    // Gate opening requires measured arrival, even after a movement timeout.
     public static final double GARDEN_SHOT_POSITION_TOLERANCE_INCHES = 0.5;
     public static final double GARDEN_SHOT_HEADING_TOLERANCE_DEGREES = 3.0;
     public static final double AUTO_LIMIT_SECONDS = 30.0;
@@ -35,9 +36,9 @@ public final class AutoConfig {
     public static final double GARDEN_FLOWER_BACKOUT_TIMEOUT_SECONDS = 2.0;
     // Evaluated after shot two against the 30-second clock: strictly greater than 14.
     public static final double GARDEN_FLOWER_MIN_REMAINING_SECONDS = 14.0;
-    public static final double GARDEN_FIRST_SHOOT_SECONDS = 5.0; // Includes feeder startup.
+    public static final double GARDEN_FIRST_SHOOT_SECONDS = 5.0; // Measured from gate opening.
     public static final double GARDEN_NOFLWR_SECOND_SHOOT_SECONDS = 5.0; // NoFlwr only.
-    public static final double GARDEN_SECOND_SHOOT_SECONDS = 3.0; // Includes feeder spin-up.
+    public static final double GARDEN_SECOND_SHOOT_SECONDS = 3.0; // Measured from gate opening.
     public static final double GARDEN_COLLECTION_PAUSE_SECONDS = 0.5;
     public static final double GARDEN_COLLECTION_SECONDS = 2.0;
     public static final double GARDEN_HIVE_WAIT_SECONDS = 2.0;
@@ -46,14 +47,16 @@ public final class AutoConfig {
     public static final double GARDEN_SLIDE_IN_SECONDS = 1.0;
     public static final double GARDEN_FLOWER_COLLECTION_SECONDS = 2.0;
     public static final double GARDEN_THIRD_SHOOT_SECONDS = 3.0;
+    // After the first Flower shot, collect only if at least this much Auto time remains.
+    public static final double FLOWER_TRIP_MIN_REMAINING_SECONDS = 15.0;
     public static final double FLOWER_FIRST_SHOOT_SECONDS = 5.0;
     public static final double FLOWER_SECOND_SHOOT_SECONDS = 6.0;
-    public static final double HIVE_WAIT_TIMEOUT_SECONDS = 10.0; // Flower first shot.
+    public static final double HIVE_WAIT_TIMEOUT_SECONDS = 7.0; // Flower first shot.
     // Maximum brief detection gap; missing frames do not earn stability time.
     public static final long HIVE_TAG_DROPOUT_MS = 150;
-    public static final double HIVE_SETTLE_SECONDS = 3.0; // Flower continuous tag visibility.
+    public static final double HIVE_SETTLE_SECONDS = 3.0; // Flower stability window with HIVE_TAG_DROPOUT_MS grace.
     public static final double FLOWER_ARM_PAUSE_SECONDS = 1.0;
-    public static final double FLOWER_POST_SHOT_COAST_SECONDS = 2.0; // After first shot, before leaving shooting position.
+    public static final double FLOWER_POST_SHOT_COAST_SECONDS = 0.0; // Gate holds balls; no coast-down pause.
     public static final double FLOWER_COLLECTION_SECONDS = 2.0; // DC intake at collection point before retracing.
     public static final double FLOWER_SECOND_POSITION_PAUSE_SECONDS = 0.0;
     public static final double BACKWARD_TEST_SECONDS = 1.0; // Flower timed backward leg.
@@ -79,9 +82,9 @@ public final class AutoConfig {
     //Slide Inside Garden to pick the balls
     public static final Waypoint GARDEN_COLLECT_SLIDE_IN = new Waypoint(-0.7, -52.90, 0);
 
-    //start Intake only motor for 2 secs
+    // Collection dwell uses GARDEN_COLLECTION_SECONDS; intake is already running.
 
-    //Prepare to return- Move forward 1 inches
+    // Return waypoint; both X and Y differ from slide-in.
     public static final Waypoint GARDEN_COLLECT_SLIDE_OUT = new Waypoint(-1, -54.0, 0);
 
     //RETURN to Shooting position

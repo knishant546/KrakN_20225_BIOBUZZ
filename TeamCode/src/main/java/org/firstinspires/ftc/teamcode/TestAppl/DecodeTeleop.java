@@ -13,12 +13,12 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
-import org.firstinspires.ftc.teamcode.subsystems.test.ColorSensor;
-import org.firstinspires.ftc.teamcode.subsystems.test.DriveTrain;
-import org.firstinspires.ftc.teamcode.subsystems.test.IntakeAuto;
-import org.firstinspires.ftc.teamcode.subsystems.test.Lift;
-import org.firstinspires.ftc.teamcode.subsystems.test.ShooterNew;
-import org.firstinspires.ftc.teamcode.subsystems.test.Spinner;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.ColorSensor;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.DriveTrain;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.IntakeAuto;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.Lift;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.ShooterNew;
+import org.firstinspires.ftc.teamcode.subsystems.testClasses.Spinner;
 
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.utility.InstantCommand;

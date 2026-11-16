@@ -13,7 +13,7 @@
  *   KKN_TeleOP
  *   Includes indirect/source dependencies; optional features may be inactive.
  * ============================================================================ */
-package org.firstinspires.ftc.teamcode.subsystems.test;
+package org.firstinspires.ftc.teamcode.subsystems.testClasses;
 
 //import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
 import org.firstinspires.ftc.robotcore.external.Telemetry;

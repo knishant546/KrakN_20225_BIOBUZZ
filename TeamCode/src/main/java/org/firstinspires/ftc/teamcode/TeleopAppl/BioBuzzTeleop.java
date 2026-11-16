@@ -6,6 +6,7 @@
  *   BioBuzzTeleop (Driver Station entry point).
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TeleopAppl;
+import org.firstinspires.ftc.teamcode.Logging.RunTelemetryLogger;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import static org.firstinspires.ftc.teamcode.config.TeleopConfig.*;
@@ -16,23 +17,30 @@ import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeArmSingleServo;
 import org.firstinspires.ftc.teamcode.subsystems.InputDCShooter;
 import org.firstinspires.ftc.teamcode.subsystems.PollenShooter;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterGateServo;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterGateControl;
 
 
 /** Driver-controlled chassis mode based on KKN_TEST's active mecanum test. */
 @TeleOp(name = "BioBuzzTeleop", group = "BioBuzz")
 public class BioBuzzTeleop extends OpMode {
+    private RunTelemetryLogger runLog = new RunTelemetryLogger();
     // Pollen and feeder initialize stopped during INIT; Nectar is disabled.
-    // Gamepad 2 LT sequences the shooter and feeder after Driver Station START.
+    // START spins Pollen/feeder; Gamepad 2 LT/RT open/close the gate.
     private PollenShooter shooter;
+    private final ShooterGateServo gate = new ShooterGateServo();
+    private final ShooterGateControl gateControl = new ShooterGateControl();
+    private boolean gateRequested;
+    // Test overrides latch once per press and reset at INIT/START.
+    private boolean shooterAWasPressed, feederBWasPressed, shooterManualStop;
+    private Boolean feederTestOverride; // null = normal automatic startup; true/false = manual.
+    private boolean feederOutput;
 
     private boolean shooterRightWasPressed, shooterLeftWasPressed;
     // Velocity control uses TeleopConfig defaults; RIGHT/LEFT adjust the selected target.
     private int intakePowerPercent = INITIAL_INTAKE_POWER_PERCENT;
     private boolean intakeLeftWasPressed, intakeRightWasPressed, intakeStartWasPressed;
     private boolean intakeReverse, intakeDirectionXWasPressed;
-    private boolean helperAWasPressed, helperBWasPressed;
-    private int helperPowerPercent = INITIAL_INTAKE_HELPER_POWER_PERCENT;
-    private boolean helperReverse, helperReverseXWasPressed;
     // D-pad RIGHT/LEFT adjust speed by 1 percentage point per press, limited to 0..85%.
     private int selectedShooterSpeedPercent = INITIAL_SHOOTER_SPEED_PERCENT;
     private String lastShooterSpeedChange = "No speed change requested";
@@ -40,17 +48,17 @@ public class BioBuzzTeleop extends OpMode {
     // Trigger depth selects a button press, not shooter velocity.
     private static final double SHOOTER_TRIGGER_THRESHOLD = 0.5;
     private boolean feederStartWasPressed;
-    enum FeedSequence { IDLE, SPINNING_UP, RUNNING, RECOVERING }
-    private FeedSequence feedSequence = FeedSequence.IDLE;
-    private final ShooterFeedGate feedGate = new ShooterFeedGate();
     private boolean teleopStarted;
+    private boolean pollenReversed, feederReversed, pollenXWasPressed, feederYWasPressed;
 
     private void stopShootingImmediately() {
+        gate.close(); // Close before stopping rotating motors.
         if (inputDCShooter != null) inputDCShooter.stop();
         if (shooter != null) shooter.stopImmediately();
         // Shooting controls never change the independent intake request.
-        feedGate.stop();
-        feedSequence = FeedSequence.IDLE;
+        gateRequested = false;
+        gate.close();
+        gateControl.stop();
         feederStatus = "Stopped";
     }
     private String feederStatus = "Ready / stopped";
@@ -62,14 +70,25 @@ public class BioBuzzTeleop extends OpMode {
     private boolean intakeRunning, intakeManualStop;
     private DcMotor frontLeft, frontRight, rearLeft, rearRight;
 
-    /** Variant hook: false skips helper hardware lookup and prevents helper movement. */
+    /** Legacy subclass compatibility; the old intake helper no longer exists. */
     protected boolean isIntakeHelperEnabled() { return false; }
 
     @Override public void init() {
+        runLog = new RunTelemetryLogger();
+        telemetry = runLog.attach(telemetry, getClass().getSimpleName());
         teleopStarted = false;
-        feedSequence = FeedSequence.IDLE;
+        shooterManualStop = false;
+        feederTestOverride = null;
+        feederOutput = false;
+        pollenReversed = feederReversed = false;
+        pollenXWasPressed = gamepad2.x;
+        feederYWasPressed = gamepad2.y;
+        gate.init(hardwareMap); // CLOSED/DOWN during INIT.
+        gateRequested = false;
         shooter = PollenShooter.getInstance(); shooter.initialize(hardwareMap);
-        feedGate.stop(); // Nectar is disabled: no hardware lookup or commands.
+        gateRequested = false;
+        gate.close();
+        gateControl.stop(); // Nectar is disabled: no hardware lookup or commands.
         selectedShooterSpeedPercent = INITIAL_SHOOTER_SPEED_PERCENT;
         lastShooterSpeedChange = "No speed change requested";
         driveTest = new MecanumDrive();
@@ -78,18 +97,13 @@ public class BioBuzzTeleop extends OpMode {
         driveTest.init(hardwareMap, false);
         driveTest.drive(0, 0, 0);
         intake = new Intake();
-        intake.init(hardwareMap, isIntakeHelperEnabled()); // Helper disabled: no hardware lookup or movement.
+        intake.init(hardwareMap); // Gate is independent of intake.
         intake.stop();
-        helperPowerPercent = INITIAL_INTAKE_HELPER_POWER_PERCENT;
-        intake.setHelperReverse(helperReverse);
-        intake.setHelperPower(helperPowerPercent / 100.0);
         intakeRunning = false;
         intakeManualStop = false;
         intakePowerPercent = INITIAL_INTAKE_POWER_PERCENT;
         intakeReverse = false;
         intakeDirectionXWasPressed = gamepad1.x;
-        helperReverse = false;
-        helperReverseXWasPressed = gamepad2.x;
         intakeLeftWasPressed = gamepad1.dpad_left;
         intakeRightWasPressed = gamepad1.dpad_right;
         intakeStartWasPressed = gamepad1.left_trigger > SHOOTER_TRIGGER_THRESHOLD;
@@ -107,10 +121,10 @@ public class BioBuzzTeleop extends OpMode {
         rearLeft = hardwareMap.get(DcMotor.class, "RLDC");
         rearRight = hardwareMap.get(DcMotor.class, "RRDC");
         telemetry.addLine("Ready: left stick drive/strafe, right stick X turn");
-        telemetry.addLine("Gamepad 2: LT starts Pollen sequence; RT stops Pollen/feeder; RIGHT/LEFT adjusts Pollen");
+        telemetry.addLine("Gamepad 2: LT opens gate; RT closes gate; RIGHT/LEFT adjusts Pollen");
         telemetry.addLine("Intake G1: LT start / RT stop; D-pad RIGHT +1 / LEFT -1 point; X toggles direction. Driving does not start intake.");
         telemetry.addLine("Arm: folded UP; after START: gamepad 1 UP/DOWN presets");
-        telemetry.addData("Input shooter motor", "Enabled; waits for Pollen speed or startup timeout. Nectar disabled.");
+        telemetry.addData("Input shooter motor", "START spins Pollen; feeder starts at speed or 1.5 s; gate waits for LT.");
     }
 
     @Override public void init_loop() {
@@ -118,63 +132,79 @@ public class BioBuzzTeleop extends OpMode {
         updateInputDCShooter();
     }
 
-    /** Speed gate does not block driving; startup timeout applies only to initial spin-up. */
+    /** LT/RT now request gate OPEN/CLOSED; motors stay running after RT. */
     private void updateInputDCShooter() {
-        double now = System.nanoTime() / 1e9;
-        boolean startPressed = gamepad2.left_trigger > SHOOTER_TRIGGER_THRESHOLD && !feederStartWasPressed;
-        if (gamepad2.right_trigger > SHOOTER_TRIGGER_THRESHOLD) {
-            stopShootingImmediately();
-        } else if (startPressed && teleopStarted && feedSequence == FeedSequence.IDLE) {
-            if (selectedShooterSpeedPercent > 0) {
-                inputDCShooter.stop();
-                shooter.runSpeedFraction(selectedShooterSpeedPercent / 100.0);
-                feedGate.start(now);
-            } else feederStatus = "Cannot start: Pollen selected speed is zero";
-        }
-        feedGate.update(now, shooter.getTargetVelocity(), shooter.measuredVelocity());
-        feedSequence = feedGate.state;
-        // Feeder output follows this gate; intake is controlled independently by Gamepad 1.
-        feederStartWasPressed = gamepad2.left_trigger > SHOOTER_TRIGGER_THRESHOLD;
-    }
-
-    /** Pure timing/velocity state machine, also exercised by the local regression check. */
-    static final class ShooterFeedGate {
-        FeedSequence state = FeedSequence.IDLE;
-        double startedAt, lowSince = Double.NaN, readySince = Double.NaN;
-        void start(double now) { stop(); startedAt = now; state = FeedSequence.SPINNING_UP; }
-        void stop() { state = FeedSequence.IDLE; lowSince = readySince = Double.NaN; }
-        void update(double now, double target, double measured) {
-            if (state == FeedSequence.IDLE) return;
-            if (target <= 0 || !Double.isFinite(target)) { stop(); return; }
-            boolean finite = Double.isFinite(measured);
-            double tolerance = Math.min(SHOOTER_READY_MAX_ERROR_TICKS, target * SHOOTER_READY_ERROR_FRACTION);
-            boolean ready = finite && Math.abs(target - measured) <= tolerance;
-            if (state == FeedSequence.SPINNING_UP) {
-                if (ready || now - startedAt >= SHOOTER_START_TIMEOUT_SECONDS)
-                    state = FeedSequence.RUNNING;
-            } else if (state == FeedSequence.RUNNING) {
-                boolean slow = !finite || measured < target * (1 - SHOOTER_DROP_FRACTION);
-                if (!slow) lowSince = Double.NaN;
-                else {
-                    if (Double.isNaN(lowSince)) lowSince = now;
-                    if (now - lowSince >= SHOOTER_DROP_HOLD_SECONDS) {
-                        state = FeedSequence.RECOVERING;
-                        readySince = Double.NaN;
-                    }
-                }
-            } else if (state == FeedSequence.RECOVERING) {
-                if (!ready) readySince = Double.NaN;
-                else {
-                    if (Double.isNaN(readySince)) readySince = now;
-                    if (now - readySince >= SHOOTER_RECOVERY_HOLD_SECONDS) {
-                        state = FeedSequence.RUNNING;
-                        lowSince = Double.NaN;
-                    }
+        double now = System.nanoTime()/1e9;
+        // A/B ignore controller-assignment chords. Motor toggles preserve the LT/RT gate request.
+        if (teleopStarted && !gamepad2.start && !gamepad2.back) {
+            if (gamepad2.a && !shooterAWasPressed) {
+                gateRequested = false;
+                gate.close();
+                gateControl.closeGate();
+                shooterManualStop = shooter.getTargetVelocity() > 0;
+                if (shooterManualStop) {
+                    shooter.stopImmediately();
+                    gateControl.stop();
+                    // Preserve feeder state: this button controls the shooter only.
+                    if (feederTestOverride == null) feederTestOverride = feederOutput;
+                } else if (selectedShooterSpeedPercent > 0) {
+                    shooter.runSpeedFraction(selectedShooterSpeedPercent / 100.0);
+                    gateControl.start(now);
                 }
             }
+            if (gamepad2.b && !feederBWasPressed) {
+                feederTestOverride = !feederOutput;
+                gateRequested = false;
+                gate.close();
+                gateControl.closeGate();
+            }
         }
+        shooterAWasPressed = gamepad2.a;
+        feederBWasPressed = gamepad2.b;
+        boolean pressed = gamepad2.left_trigger > SHOOTER_TRIGGER_THRESHOLD && !feederStartWasPressed;
+        if (gamepad2.right_trigger > SHOOTER_TRIGGER_THRESHOLD) {
+            gateRequested = false;
+            gate.close();
+            gateControl.closeGate();
+        } else if (pressed && teleopStarted && selectedShooterSpeedPercent > 0) gateRequested = true;
+
+        // Close and cancel the request before either direction change.
+        if (teleopStarted && gamepad2.x && !pollenXWasPressed) {
+            gateRequested = false;
+            gate.close();
+            pollenReversed = !pollenReversed;
+            shooter.setReversed(pollenReversed);
+            gateControl.requireRecovery();
+        }
+        if (teleopStarted && gamepad2.y && !feederYWasPressed) {
+            gateRequested = false;
+            gate.close();
+            gateControl.closeGate();
+            feederReversed = !feederReversed;
+            inputDCShooter.setPower(feederReversed ? FEEDER_POWER : -FEEDER_POWER);
+        }
+        pollenXWasPressed = gamepad2.x;
+        feederYWasPressed = gamepad2.y;
+        feederStartWasPressed = gamepad2.left_trigger > SHOOTER_TRIGGER_THRESHOLD;
+        if (teleopStarted) gateControl.update(now, shooter.getTargetVelocity(),
+                shooter.measuredVelocity(), gateRequested && !Boolean.FALSE.equals(feederTestOverride), 0.0);
+        feederOutput = teleopStarted && (feederTestOverride != null
+                ? feederTestOverride : gateControl.isFeederRunning());
+        if (feederOutput) inputDCShooter.start(); else inputDCShooter.stop();
+        if (gateControl.isGateOpen()) gate.open(); else gate.close();
+        feederStatus = feederOutput ? "Running (gate controls balls)" : "Waiting / stopped";
+        telemetry.addData("Test shooter (G2 A)", shooter.getTargetVelocity() > 0 ? "ON" : "OFF");
+        telemetry.addData("Test feeder (G2 B)", (feederOutput ? "ON" : "OFF")
+                + (feederTestOverride == null ? " / automatic" : " / manual override"));
+        telemetry.addData("Pollen direction (G2 X)", pollenReversed ? "REVERSED" : "NORMAL");
+        telemetry.addData("Feeder direction (G2 Y)", feederReversed ? "REVERSED (-power)" : "NORMAL (+power)");
+        telemetry.addData("Shooter gate", gate.isOpen() ? "OPEN" : "CLOSED");
+        telemetry.addData("Shooter gate requested", gateRequested ? "OPEN" : "CLOSED");
+        telemetry.addData("Shooter gate commanded degrees", gate.getCommandedDegrees());
     }
     @Override public void loop() {
+        runLog.updateToggle(gamepad1.back);
+        runLog.gamepads(gamepad1, gamepad2);
         updateShooter();
 
         updateInputDCShooter();
@@ -230,34 +260,12 @@ public class BioBuzzTeleop extends OpMode {
         if (gamepad1.x && !intakeDirectionXWasPressed) intakeReverse = !intakeReverse;
         intakeDirectionXWasPressed = gamepad1.x;
         telemetry.addData("Intake direction (G1 X)", intakeReverse ? "REVERSE (+power)" : "NORMAL (-power)");
-        // Gamepad 2 X toggles only the helper once per press; it never starts a stopped intake.
-        if (isIntakeHelperEnabled() && gamepad2.x && !helperReverseXWasPressed) helperReverse = !helperReverse;
-        helperReverseXWasPressed = gamepad2.x;
-        // Independent helper selection: one adjustment per press, ignoring pairing chords.
-        if (isIntakeHelperEnabled() && gamepad2.a && !helperAWasPressed && !gamepad2.b && !gamepad2.start && !gamepad2.back)
-            helperPowerPercent = Math.min(100, helperPowerPercent + INTAKE_HELPER_STEP_PERCENT);
-        else if (isIntakeHelperEnabled() && gamepad2.b && !helperBWasPressed && !gamepad2.a && !gamepad2.start && !gamepad2.back)
-            helperPowerPercent = Math.max(0, helperPowerPercent - INTAKE_HELPER_STEP_PERCENT);
-        helperAWasPressed = gamepad2.a;
-        helperBWasPressed = gamepad2.b;
-        intake.setHelperReverse(helperReverse);
-        intake.setHelperPower(helperPowerPercent / 100.0);
-        telemetry.addData("Intake helper selected power (G2 A+/B-)", "%d%%", helperPowerPercent);
-        telemetry.addData("Intake helper", !isIntakeHelperEnabled() ? "DISABLED (no hardware initialized)" : intakeRunning && intakePowerPercent > 0 && helperPowerPercent > 0
-                ? (helperReverse ? "Running reversed" : "Running") : "Stopped");
-        // Keep collected balls held: shooter spin-up/recovery only pauses the feeder.
-        // Gamepad 1 RT stops intake only; feeder remains governed by the shooting sequence.
-
+        // Intake remains independent of gate and shooter readiness.
         boolean intakeOutput = intakeRunning && !intakeManualStop && intakePowerPercent > 0;
         if (intakeOutput) intake.start(intakePowerPercent / 100.0, intakeReverse, false);
         else intake.stop();
-        if (feedSequence == FeedSequence.RUNNING) inputDCShooter.start();
-        else inputDCShooter.stop();
-        feederStatus = feedSequence == FeedSequence.RUNNING ? "Running"
-                : feedSequence == FeedSequence.SPINNING_UP ? "Waiting for Pollen speed / startup timeout"
-                : feedSequence == FeedSequence.RECOVERING ? "Paused: waiting for stable Pollen recovery" : "Stopped";
         telemetry.addData("Input shooter motor", feederStatus);
-        telemetry.addData("Shooting sequence", feedSequence);
+        telemetry.addData("Shooting sequence", gateControl.getState());
         telemetry.addData("Intake actual output", intakeOutput ? "Running (independent of shooter)" : "Stopped");
         telemetry.addData("Pollen ready tolerance (ticks/s)", "%.0f",
                 Math.min(SHOOTER_READY_MAX_ERROR_TICKS, shooter.getTargetVelocity() * SHOOTER_READY_ERROR_FRACTION));
@@ -265,7 +273,6 @@ public class BioBuzzTeleop extends OpMode {
         telemetry.addData("Intake", intakeManualStop ? "Manual STOP (LT to restart)"
                 : intakePowerPercent == 0 ? "Stopped (0% selected power)" : intakeRunning ? "Running" : "Waiting for Gamepad 1 LT");
         telemetry.addData("Intake selected power", "%d%% (D-pad step: %d points)", intakePowerPercent, INTAKE_STEP_PERCENT);
-        telemetry.addData("Helper direction (gamepad 2 X toggles)", !isIntakeHelperEnabled() ? "DISABLED" : helperReverse ? "REVERSE" : "NORMAL");
         telemetry.addData("Intake decrease (gamepad 1 LEFT)", gamepad1.dpad_left ? "PRESSED" : "Released");
         telemetry.addData("Intake increase (gamepad 1 RIGHT)", gamepad1.dpad_right ? "PRESSED" : "Released");
         telemetry.addData("Turn input", "%.2f", turn);
@@ -274,15 +281,27 @@ public class BioBuzzTeleop extends OpMode {
         telemetry.addData("Front right power (FRDC)", "%.2f", frontRight.getPower());
         telemetry.addData("Rear left power (RLDC)", "%.2f", rearLeft.getPower());
         telemetry.addData("Rear right power (RRDC)", "%.2f", rearRight.getPower());
+        runLog.sample(hardwareMap, telemetry);
     }
 
     @Override public void start() {
+        runLog.beginRun(gamepad1.back);
+        runLog.event("lifecycle", "START");
+        pollenXWasPressed = gamepad2.x;
+        feederYWasPressed = gamepad2.y;
         intakeDirectionXWasPressed = gamepad1.x; // Require a fresh press after START.
         teleopStarted = true;
-        helperAWasPressed = gamepad2.a;
-        helperBWasPressed = gamepad2.b;
+        shooterAWasPressed = gamepad2.a;
+        feederBWasPressed = gamepad2.b;
+        shooterManualStop = false;
+        feederTestOverride = null;
+        gateRequested = false;
+        gate.close();
+        if (selectedShooterSpeedPercent > 0) {
+            shooter.runSpeedFraction(selectedShooterSpeedPercent / 100.0);
+            gateControl.start(System.nanoTime()/1e9);
+        }
 
-        helperReverseXWasPressed = gamepad2.x; // Ignore buttons held during INIT.
         intakeLeftWasPressed = gamepad1.dpad_left;
         intakeRightWasPressed = gamepad1.dpad_right;
         intakeStartWasPressed = gamepad1.left_trigger > SHOOTER_TRIGGER_THRESHOLD; // Ignore X held during INIT.
@@ -310,11 +329,12 @@ public class BioBuzzTeleop extends OpMode {
                     + previousSpeed + " -> " + selectedShooterSpeedPercent
                     + "%" + (previousSpeed == selectedShooterSpeedPercent ? " (limit reached)" : "");
         }
-        // D-pad RIGHT/LEFT adjust running speed but never start a stopped shooter.
+        // Selected zero stops motors/closes gate; increasing again restarts the startup check.
         // Zero speed also stops the feeder to avoid feeding into a stopped wheel.
         if (speedChanged && selectedShooterSpeedPercent <= 0) {
             stopShootingImmediately();
-        } else if (speedChanged && shooter.getTargetVelocity() > 0) {
+        } else if (speedChanged && teleopStarted && !shooterManualStop) {
+            if (shooter.getTargetVelocity() <= 0) gateControl.start(System.nanoTime()/1e9);
             shooter.runSpeedFraction(selectedShooterSpeedPercent / 100.0);
         }
         double target = shooter.getTargetVelocity();
@@ -337,9 +357,16 @@ public class BioBuzzTeleop extends OpMode {
     @Override public void stop() {
         stopShootingImmediately();
         teleopStarted = false;
+        shooterManualStop = false;
+        feederTestOverride = null;
+        feederOutput = false;
+        pollenReversed = feederReversed = false;
+        pollenXWasPressed = gamepad2.x;
+        feederYWasPressed = gamepad2.y;
         if (intake != null) intake.stop();
         if (driveTest != null) driveTest.drive(0, 0, 0);
         // KKN_TEST's inactive color sensor is not initialized or dereferenced here.
+        runLog.close();
     }
     /** Read-only calibration access; also available when the shooter is stopped. */
     protected int getSelectedShooterSpeedPercent() { return selectedShooterSpeedPercent; }

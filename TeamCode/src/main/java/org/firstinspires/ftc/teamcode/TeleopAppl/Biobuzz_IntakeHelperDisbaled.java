@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 /* ============================================================================
  * Class: Biobuzz_IntakeHelperDisbaled
  * What it does: BioBuzzTeleop controls with the intake helper servo disabled.
- *   Does not initialize helper hardware; gamepad 2 A/B helper controls are inactive.
+ *   Legacy disabled alias; inherits the new positional shooter gate and its hardware requirement.
  * Applications using it: Separate Driver Station TeleOp entry point.
  * ============================================================================ */
 @com.qualcomm.robotcore.eventloop.opmode.Disabled
@@ -15,6 +15,6 @@ public class Biobuzz_IntakeHelperDisbaled extends BioBuzzTeleop {
 
     @Override public void init() {
         super.init();
-        telemetry.addLine("Intake helper DISABLED: no helper hardware required; gamepad 2 A/B inactive.");
+        telemetry.addLine("Legacy alias: positional ShooterGateServo required; LT/RT control gate.");
     }
 }

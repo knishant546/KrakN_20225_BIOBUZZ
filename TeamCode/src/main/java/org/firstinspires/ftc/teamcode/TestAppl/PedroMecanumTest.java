@@ -5,7 +5,7 @@
  * Applications using it:
  *   PedroMecanumTest (Driver Station entry point).
  * ============================================================================ */
-package org.firstinspires.ftc.teamcode.subsystems.test.pedroPathing;
+package org.firstinspires.ftc.teamcode.TestAppl;
 
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.revhub.drivetrains.Mecanum;

@@ -5,7 +5,7 @@
  * Applications using it:
  *   No application references found in current teamcode sources.
  * ============================================================================ */
-package org.firstinspires.ftc.teamcode.subsystems.test.pedroPathing;
+package org.firstinspires.ftc.teamcode.subsystems.testClasses.pedroPathing;
 
 /**
  * Pedro Pathing 3 migration placeholder.

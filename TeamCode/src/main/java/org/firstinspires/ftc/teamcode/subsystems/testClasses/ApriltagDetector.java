@@ -7,7 +7,7 @@
  *   Includes indirect/source dependencies; optional features may be inactive.
  *   Calibration currently has LOG_FILE_TEST_ONLY=true: camera access is skipped.
  * ============================================================================ */
-package org.firstinspires.ftc.teamcode.subsystems.test;
+package org.firstinspires.ftc.teamcode.subsystems.testClasses;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
