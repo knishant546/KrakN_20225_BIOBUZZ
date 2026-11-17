@@ -38,6 +38,7 @@ public final class AutoConfig {
     public static final double GARDEN_HIVE_WAIT_SECONDS = 2.0;
     public static final double GARDEN_HIVE_STABLE_SECONDS = 1.0;
     public static final double GARDEN_FLOWER_COLLECTION_SECONDS = 2.0;
+    public static final double GARDEN_FLOWER_SLIDE_IN_SECONDS = 1.0; // Timed Flower entry; ignores Pedro busy.
     public static final double GARDEN_THIRD_SHOOT_SECONDS = 3.0;
     public static final double FLOWER_FIRST_SHOOT_SECONDS = 5.0;
     public static final double FLOWER_SECOND_SHOOT_SECONDS = 6.0;
@@ -54,7 +55,7 @@ public final class AutoConfig {
     public static final Waypoint FLOWER_SHOOT_1 = new Waypoint(-1, 0, 0);
     public static final Waypoint FLOWER_STRAIGHT_END = new Waypoint(-10, 0, 0);
     public static final Waypoint FLOWER_STRAFE_END = new Waypoint(-10, 10, 0);
-    public static final Waypoint FLOWER_SHOOT_2 = new Waypoint(-5, 10, 0);
+    public static final Waypoint FLOWER_SHOOT_2 = new Waypoint(-2.5, 10, 0);
     public static final Waypoint FLOWER_EXIT_STRAIGHT = new Waypoint(-11, 10, 0);
     public static final Waypoint FLOWER_PARK = new Waypoint(-11, 42, 0);
     public static final Waypoint GARDEN_SHOOT = new Waypoint(-1, 0, 0);
@@ -88,6 +89,8 @@ public final class AutoConfig {
     public static final Waypoint GARDEN_FLOWER_START = new Waypoint(-4, 0, 0);
     public static final Waypoint GARDEN_FLOWER_REACHED = new Waypoint(-26.36, -36.74, 270);
     public static final Waypoint GARDEN_FLOWER_SLIDE_IN = new Waypoint(-25.97, -43.89, 270);
+    // Extra inch in +Y before folding the arm.
+    public static final Waypoint GARDEN_FLOWER_BACKOUT = new Waypoint(-26.36, -35.74, 270);
 
     // Before park strafe, so that you do not hit Hive poles
     public static final Waypoint GARDEN_BEFOREPARK_STRAFE = new Waypoint(-4, -23, 0);

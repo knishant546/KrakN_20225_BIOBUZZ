@@ -68,7 +68,7 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
     private String hiveResult = "First shot: no check required";
     private Pose strafeClearancePose;
     private Pose gardenSlideIn, gardenSlideOut, shootingHome;
-    private Pose flowerStart, flowerReached, flowerSlideIn;
+    private Pose flowerStart, flowerReached, flowerSlideIn, flowerBackout;
     private Pose corner1;
     private Pose turn1;
     private Pose corner2;
@@ -101,7 +101,7 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
         final boolean[] timedOut = {false};
         final boolean[] nearTargetDone = {false};
         final WaypointSettleGuard settle = new WaypointSettleGuard();
-        final boolean useNearTargetFallback = toPosition == shootingPose || toPosition == shootingHome || toPosition == gardenPos || toPosition == gardenSlideIn || toPosition == gardenSlideOut || toPosition == flowerReached || toPosition == flowerSlideIn;
+        final boolean useNearTargetFallback = toPosition == shootingPose || toPosition == shootingHome || toPosition == gardenPos || toPosition == gardenSlideIn || toPosition == gardenSlideOut || toPosition == flowerReached || toPosition == flowerSlideIn || toPosition == flowerBackout;
         final String movementLabel = "Waypoint to " + toPosition.x() + ", " + toPosition.y();
         return new LambdaCommand(movementLabel)
                 .setStart(() -> {
@@ -164,6 +164,7 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
         flowerStart = GARDEN_FLOWER_START.pose();
         flowerReached = GARDEN_FLOWER_REACHED.pose();
         flowerSlideIn = GARDEN_FLOWER_SLIDE_IN.pose();
+        flowerBackout = GARDEN_FLOWER_BACKOUT.pose();
         strafeClearancePose = GARDEN_BEFOREPARK_STRAFE.pose();
         // Zero-degree parking heading: maintain the starting orientation.
         turn1 = GARDEN_PARK.pose();
@@ -237,18 +238,35 @@ public class BLUE_AutoGarden extends NextFTCOpMode {
         }
     }
     /** Runs only after the confirmed second shot finishes, with intake left running. */
+    /** Bound Flower entry to one second even if Pedro remains busy. Position is not guaranteed. */
+    private Command buildTimedFlowerSlideInCommand() {
+        final long[] began = {0};
+        return new LambdaCommand("Garden Flower timed slide-in")
+                .setStart(() -> {
+                    autoStatus = "Flower slide-in: timed " + GARDEN_FLOWER_SLIDE_IN_SECONDS + " s";
+                    Pose actual = follower.pose();
+                    follower.follow(line(actual, flowerSlideIn).linear(actual, flowerSlideIn));
+                    began[0] = System.nanoTime();
+                })
+                .setIsDone(() -> (System.nanoTime()-began[0])/1e9 >= GARDEN_FLOWER_SLIDE_IN_SECONDS)
+                .setStop(interrupted -> {
+                    follower.stop();
+                    lastMovementResult = "Flower slide-in: " + (interrupted ? "interrupted"
+                            : "1-second timed move ended; position not verified");
+                });
+    }
     private Command buildFlowerCollectionAndThirdShot() {
         return new SequentialGroup(
                 new InstantCommand(() -> autoStatus = "Flower collection after second shot"),
                 buildMoveCommand(shootingHome, flowerStart),
                 new InstantCommand(arm::liftDown),
                 buildMoveCommand(flowerStart, flowerReached),
-                buildMoveCommand(flowerReached, flowerSlideIn),
+                buildTimedFlowerSlideInCommand(),
                 new Delay(GARDEN_FLOWER_COLLECTION_SECONDS),
-                buildMoveCommand(flowerSlideIn, flowerReached),
+                buildMoveCommand(flowerSlideIn, flowerBackout),
                 // Fold after backing out, before returning to the shooting position.
                 new InstantCommand(arm::liftUp),
-                buildMoveCommand(flowerReached, shootingHome),
+                buildMoveCommand(flowerBackout, shootingHome),
                 new InstantCommand(() -> autoStatus = "Third shot: no additional hive check"),
                 shooting.command(SHOOTER_SPEED_FRACTION, GARDEN_THIRD_SHOOT_SECONDS)
         );
