@@ -199,3 +199,17 @@ These checks use the 30-second clock. The 24-second parking deadline can still i
 Ported the Nov16 collection geometry and arm calibration: IntakeArmSingleServo UP=20 degrees, DOWN=140 degrees, intermediate remains 135. These shared presets also affect TeleOp and other callers. AutoFlower's FLOWER_SHOOT_2 target is now (-2.5,10,0); its one-second backward workaround remains, so reaching that coordinate is not guaranteed.
 
 RED/BLUE full AutoGarden Flower entry now uses GARDEN_FLOWER_SLIDE_IN_SECONDS=1.0 and ignores Pedro busy for completion. It then collects for the existing duration and backs out to GARDEN_FLOWER_BACKOUT=(-26.36,-35.74,270), an extra inch in +Y, before folding the arm and returning home. Backout retains the existing 3-second maximum plus near-target fallback. Garden's own collection slide-in, Garden_NoFlwr and shooting timings are unchanged. Existing trip cutoffs and overall deadlines still apply. This does not import the Nov16 gate or other shooting logic.
+
+## Intake trigger remapping — Oct31stOptomize
+GP1 LT (>50%) starts intake and restores its default 90% power; GP1 RT (>50%) stops intake and latches the stop. RT wins if both triggers are pressed. D-pad RIGHT/LEFT no longer start/stop intake. Existing drive-triggered intake startup is unchanged and cannot override a latched RT stop. X/Y power adjustment and D-pad UP/DOWN arm controls are unchanged.
+
+## TeleOp feeder controls update
+
+GP2 D-pad LEFT stops feeder and latches that stop; RIGHT starts feeder independently (including feeder-only testing with shooter off). Neither starts/stops the shooter. LEFT wins over RIGHT. GP2 RT overrides feeder start and retains the existing delayed shooter stop. GP2 LT starts a new shooting sequence: feeder starts when error is <=min(200 ticks/s, 5% target), or after 1.5 seconds, whichever happens first. Manual LEFT prevents automatic restart until RIGHT or a new LT sequence. No repeated speed-drop pausing was added. Auto is unchanged.
+GP1 D-pad presets accept exactly one direction; diagonals or opposite directions together are ignored. GP1 LEFT/RIGHT currently have no action after intake moved to LT/RT. GP2 controls remain independent.
+
+GP1 intake power remapping: A increases and B decreases by 10 percentage points per press (0–100%). X/Y no longer adjust intake. Holding a button changes once; simultaneous A+B and START/BACK chords are ignored. LT still restores 90% and starts intake; RT stops it. GP2 A/B shooter controls are unchanged.
+
+Arm control now belongs only to GP1 D-pad UP (20 degrees) / DOWN (140 degrees), with diagonal rejection. GP2 D-pad UP/DOWN are unused; LEFT/RIGHT still stop/start the feeder.
+
+A/B adjustment update: GP1 intake and GP2 shooter now both increase (A) / decrease (B) by 1 percentage point per press. Initial values and limits are unchanged. Controlled by INTAKE_STEP_PERCENT=1 and SHOOTER_STEP_PERCENT=1 in TeleopConfig.java.
