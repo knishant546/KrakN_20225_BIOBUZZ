@@ -6,6 +6,7 @@
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.AutoAppl;
 
+import org.firstinspires.ftc.teamcode.Logging.RunTelemetryLogger;
 import static com.pedropathing.api.Paths.line;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
 
@@ -23,6 +24,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 
 @Autonomous(name = "RED_AUTO_FLWR_PrkOnly")
 public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
+    private RunTelemetryLogger runLog = new RunTelemetryLogger();
     private String lastMovementResult = "None";
     private String lastWaypointTimeout = "None";
     private int waypointTimeoutCount;
@@ -68,6 +70,8 @@ public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
     }
 
     @Override public void onInit() {
+        runLog = new RunTelemetryLogger();
+        telemetry = runLog.attach(telemetry, getClass().getSimpleName());
         running = false;
         follower = Constants.createFollower(hardwareMap);
         Pose start = START.pose();
@@ -87,12 +91,16 @@ public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
     }
 
     @Override public void onStartButtonPressed() {
+        runLog.beginRun(gamepad1.back);
+        runLog.event("lifecycle", "START");
         startedAt = System.nanoTime();
         running = true;
         routine.schedule();
     }
 
     @Override public void onUpdate() {
+        runLog.updateToggle(gamepad1.back);
+        runLog.gamepads(gamepad1, gamepad2);
         follower.update();
         double elapsed = running ? (System.nanoTime() - startedAt) / 1e9 : 0;
         // Already parking from START; only the overall Auto limit is needed.
@@ -111,6 +119,7 @@ public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
         telemetry.addData("Last movement result", lastMovementResult);
         telemetry.addData("Waypoint timeouts", waypointTimeoutCount);
         telemetry.addData("Last waypoint timeout", lastWaypointTimeout);
+        runLog.sample(hardwareMap, telemetry);
         telemetry.update();
     }
 
@@ -118,5 +127,7 @@ public class RED_AUTO_FLWR_PrkOnly extends NextFTCOpMode {
         running = false;
         if (routine != null) routine.cancel();
         if (follower != null) follower.stop();
+    
+        runLog.close();
     }
 }

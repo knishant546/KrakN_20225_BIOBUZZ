@@ -21,7 +21,15 @@ public final class AutoConfig {
     public static final double PARK_DEADLINE_SECONDS = 24.0;
     // Driving only: collection, shooting, and vision waits use separate timers.
     public static final double WAYPOINT_TIMEOUT_SECONDS = 3.0;
+    // Selected collection/shooting waypoints only: allow Pedro to correct for 500 ms
+    // continuously inside BOTH tolerances before ending a still-busy movement.
+    public static final double WAYPOINT_NEAR_POSITION_INCHES = 0.5;
+    public static final double WAYPOINT_NEAR_HEADING_DEGREES = 3.0;
+    public static final double WAYPOINT_NEAR_HOLD_SECONDS = 0.5;
     public static final double AUTO_LIMIT_SECONDS = 30.0;
+    // Check after the preceding shot, against the 30-second clock (not parking deadline).
+    public static final double GARDEN_FLOWER_MIN_REMAINING_SECONDS = 14.0; // Strictly greater.
+    public static final double FLOWER_TRIP_MIN_REMAINING_SECONDS = 15.0; // Inclusive.
 
     public static final double GARDEN_FIRST_SHOOT_SECONDS = 4.0; // Includes feeder startup.
     public static final double GARDEN_SECOND_SHOOT_SECONDS = 3.0; // Includes feeder spin-up.

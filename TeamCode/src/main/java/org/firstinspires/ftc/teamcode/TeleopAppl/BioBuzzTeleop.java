@@ -7,6 +7,7 @@
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TeleopAppl;
 
+import org.firstinspires.ftc.teamcode.Logging.RunTelemetryLogger;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import static org.firstinspires.ftc.teamcode.config.TeleopConfig.*;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -20,6 +21,7 @@ import org.firstinspires.ftc.teamcode.subsystems.ShooterBBTeleop;
 /** Driver-controlled chassis mode based on KKN_TEST's active mecanum test. */
 @TeleOp(name = "BioBuzzTeleop", group = "BioBuzz")
 public class BioBuzzTeleop extends OpMode {
+    private RunTelemetryLogger runLog = new RunTelemetryLogger();
     // Both motors initialize stopped during INIT.
     // Gamepad 2 LT sequences the shooter and feeder after Driver Station START.
     private ShooterBBTeleop shooter;
@@ -48,6 +50,7 @@ public class BioBuzzTeleop extends OpMode {
     }
     private String feederStatus = "Ready / stopped";
     // Keep below MecanumDrive's 0.3 normalization floor so pure turning stays slower.
+    private double minimumDriveVoltage = Double.POSITIVE_INFINITY;
     private MecanumDrive driveTest;
     private Intake intake;
     private IntakeArmSingleServo intakeArm;
@@ -56,6 +59,8 @@ public class BioBuzzTeleop extends OpMode {
     private DcMotor frontLeft, frontRight, rearLeft, rearRight;
 
     @Override public void init() {
+        runLog = new RunTelemetryLogger();
+        telemetry = runLog.attach(telemetry, getClass().getSimpleName());
         teleopStarted = false;
         feedSequence = FeedSequence.IDLE;
         shooter = ShooterBBTeleop.getInstance(); shooter.initialize(hardwareMap);
@@ -65,6 +70,8 @@ public class BioBuzzTeleop extends OpMode {
         // false selects the REV hub IMU named "imu"; true resets/configures Pinpoint.
         // Robot-relative drive() below does not use either sensor's heading.
         driveTest.init(hardwareMap, false);
+        driveTest.setSlewEnabled(DRIVE_SLEW_ENABLED);
+        minimumDriveVoltage = Double.POSITIVE_INFINITY;
         driveTest.drive(0, 0, 0);
         intake = new Intake();
         intake.init(hardwareMap); // Same intake hardware as KKN_TEST; running power is set below.
@@ -144,6 +151,8 @@ public class BioBuzzTeleop extends OpMode {
     }
 
     @Override public void loop() {
+        runLog.updateToggle(gamepad1.back);
+        runLog.gamepads(gamepad1, gamepad2);
         updateShooter();
         updateInputDCShooter();
         // FTC calls loop() only after START. Arm priority: D-pad UP, then D-pad DOWN.
@@ -176,8 +185,21 @@ public class BioBuzzTeleop extends OpMode {
         double stickTurn = gamepad1.right_stick_x;
         double magnitude = Math.max(0, (Math.abs(stickTurn) - TURN_DEADBAND)
                 / (1 - TURN_DEADBAND));
-        double turn = Math.copySign(MAX_TURN_INPUT * magnitude * magnitude, stickTurn);
-        driveTest.drive(-gamepad1.left_stick_y, gamepad1.left_stick_x, turn);
+        double turn = Math.copySign(Math.min(TURN_MAX_POWER, DRIVE_MAX_POWER) / DRIVE_MAX_POWER * magnitude * magnitude, stickTurn);
+        driveTest.drive(shapeDriveInput(-gamepad1.left_stick_y), shapeDriveInput(gamepad1.left_stick_x), turn);
+        telemetry.addData("Drive ramp", "%s; %.0f ms; cap %.0f%%", DRIVE_SLEW_ENABLED ? "ON" : "OFF",
+                DRIVE_RAMP_SECONDS*1000, DRIVE_MAX_POWER*100);
+        telemetry.addData("Wheel requested FL/RL/FR/RR", java.util.Arrays.toString(driveTest.getRequestedPowers()));
+        telemetry.addData("Wheel ramped FL/RL/FR/RR", java.util.Arrays.toString(driveTest.getOutputPowers()));
+        double voltage = Double.POSITIVE_INFINITY;
+        for (com.qualcomm.robotcore.hardware.VoltageSensor sensor : hardwareMap.voltageSensor) {
+            double value = sensor.getVoltage();
+            if (value > 0 && Double.isFinite(value)) voltage = Math.min(voltage, value);
+        }
+        if (Double.isFinite(voltage)) {
+            minimumDriveVoltage = Math.min(minimumDriveVoltage, voltage);
+            telemetry.addData("Battery current / minimum V", "%.2f / %.2f", voltage, minimumDriveVoltage);
+        }
         // Start on any driving axis, ignoring small stick drift. Right-stick Y is unused.
         boolean driving = Math.abs(gamepad1.left_stick_y) > TURN_DEADBAND
                 || Math.abs(gamepad1.left_stick_x) > TURN_DEADBAND
@@ -220,9 +242,13 @@ public class BioBuzzTeleop extends OpMode {
         telemetry.addData("Front right power (FRDC)", "%.2f", frontRight.getPower());
         telemetry.addData("Rear left power (RLDC)", "%.2f", rearLeft.getPower());
         telemetry.addData("Rear right power (RRDC)", "%.2f", rearRight.getPower());
+    
+        runLog.sample(hardwareMap, telemetry);
     }
 
     @Override public void start() {
+        runLog.beginRun(gamepad1.back);
+        runLog.event("lifecycle", "START");
         teleopStarted = true;
         armUpWasPressed = gamepad2.dpad_up;
         armDownWasPressed = gamepad2.dpad_down;
@@ -282,5 +308,11 @@ public class BioBuzzTeleop extends OpMode {
         if (intake != null) intake.stop();
         if (driveTest != null) driveTest.drive(0, 0, 0);
         // KKN_TEST's inactive color sensor is not initialized or dereferenced here.
+    
+        runLog.close();
+    }
+    private static double shapeDriveInput(double input) {
+        double value = Math.max(0, (Math.abs(input)-DRIVE_DEADBAND)/(1-DRIVE_DEADBAND));
+        return Math.copySign(Math.pow(value, DRIVE_RESPONSE_EXPONENT), input);
     }
 }

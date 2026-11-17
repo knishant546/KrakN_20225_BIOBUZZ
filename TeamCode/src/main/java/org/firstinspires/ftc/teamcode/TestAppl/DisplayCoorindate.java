@@ -7,6 +7,7 @@
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.TestAppl;
 
+import org.firstinspires.ftc.teamcode.Logging.RunTelemetryLogger;
 import com.pedropathing.math.Pose;
 import com.pedropathing.revhub.localizers.PinpointLocalizer;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -22,6 +23,7 @@ import java.util.Locale;
  */
 @TeleOp(name = "DisplayCoorindate", group = "Test")
 public class DisplayCoorindate extends OpMode {
+    private RunTelemetryLogger runLog = new RunTelemetryLogger();
     private PinpointLocalizer localizer;
     private boolean aWasPressed, xWasPressed;
     private final List<String> waypoints = new ArrayList<>();
@@ -31,6 +33,8 @@ public class DisplayCoorindate extends OpMode {
     private String lastAction = "Keep robot still during INIT calibration";
 
     @Override public void init() {
+        runLog = new RunTelemetryLogger();
+        telemetry = runLog.attach(telemetry, getClass().getSimpleName());
         localizer = new PinpointLocalizer(hardwareMap, Constants.localizerConfig);
         telemetry.setMsTransmissionInterval(100);
         showPose();
@@ -42,6 +46,8 @@ public class DisplayCoorindate extends OpMode {
     }
 
     @Override public void start() {
+        runLog.beginRun(gamepad1.back);
+        runLog.event("lifecycle", "START");
         resetOrigin();
         aWasPressed = gamepad1.a;
         xWasPressed = gamepad1.x;
@@ -58,6 +64,8 @@ public class DisplayCoorindate extends OpMode {
     }
 
     @Override public void loop() {
+        runLog.updateToggle(gamepad1.back);
+        runLog.gamepads(gamepad1, gamepad2);
         localizer.update();
         Pose pose = localizer.state().pose();
         // Unwrap heading so crossing +180/-180 does not look like a full reverse turn.
@@ -80,6 +88,8 @@ public class DisplayCoorindate extends OpMode {
         aWasPressed = gamepad1.a;
         xWasPressed = gamepad1.x;
         showPose();
+    
+        runLog.sample(hardwareMap, telemetry);
     }
 
     private void showPose() {
@@ -97,4 +107,5 @@ public class DisplayCoorindate extends OpMode {
         for (int i = 0; i < waypoints.size(); i++)
             telemetry.addData("Saved " + (i + 1), waypoints.get(i));
     }
+    @Override public void stop() { runLog.close(); }
 }

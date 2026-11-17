@@ -7,6 +7,7 @@
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.AutoAppl;
 
+import org.firstinspires.ftc.teamcode.Logging.RunTelemetryLogger;
 import static com.pedropathing.api.Paths.line;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
 
@@ -17,6 +18,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
 import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.AutoShootSequence;
+import org.firstinspires.ftc.teamcode.subsystems.WaypointSettleGuard;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeArmSingleServo;
 import org.firstinspires.ftc.teamcode.subsystems.HiveUpTagIDLogic;
 import dev.nextftc.core.commands.utility.InstantCommand;
@@ -31,6 +33,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 
 @Autonomous(name = "RED_AUTO_Garden_NoFlwr")
 public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
+    private RunTelemetryLogger runLog = new RunTelemetryLogger();
 
     private String lastMovementResult = "None";
     private String lastWaypointTimeout = "None";
@@ -76,11 +79,16 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
     private Command buildMoveCommand(Pose fromPosition, Pose toPosition) {
         final long[] movementStartedAt = {0};
         final boolean[] timedOut = {false};
+        final boolean[] nearTargetDone = {false};
+        final WaypointSettleGuard settle = new WaypointSettleGuard();
+        final boolean useNearTargetFallback = toPosition == shootingPose || toPosition == shootingHome || toPosition == gardenPos || toPosition == gardenSlideIn || toPosition == gardenSlideOut;
         final String movementLabel = "Waypoint to " + toPosition.x() + ", " + toPosition.y();
         return new LambdaCommand(movementLabel)
                 .setStart(() -> {
                     autoStatus = movementLabel;
                     timedOut[0] = false;
+                    nearTargetDone[0] = false;
+                    settle.reset();
                     // Previous leg may have timed out: use measured pose instead of its target.
                     Pose actualStart = follower.pose();
                     follower.follow(line(actualStart, toPosition).linear(actualStart, toPosition));
@@ -88,6 +96,14 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
                 })
                 .setIsDone(() -> {
                     if (!follower.isBusy()) return true;
+                    // Keep correcting the exact target; only release after sustained near-target busy time.
+                    if (useNearTargetFallback) {
+                        Pose measured = follower.pose();
+                        nearTargetDone[0] = settle.update(System.nanoTime()/1e9,
+                                Math.hypot(measured.x() - toPosition.x(), measured.y() - toPosition.y()),
+                                measured.heading() - toPosition.heading());
+                        if (nearTargetDone[0]) return true;
+                    }
                     timedOut[0] = (System.nanoTime() - movementStartedAt[0]) / 1e9
                             >= WAYPOINT_TIMEOUT_SECONDS;
                     return timedOut[0];
@@ -96,7 +112,7 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
                     follower.stop();
                     // Timeout advances the sequence, including any following mechanism action.
                     lastMovementResult = movementLabel + (interrupted ? ": interrupted"
-                            : timedOut[0] ? ": TIMEOUT - advancing" : ": follower completed");
+                            : nearTargetDone[0] ? ": NEAR TARGET for 500 ms - advancing" : timedOut[0] ? ": TIMEOUT - advancing" : ": follower completed");
                     if (timedOut[0] && !interrupted) {
                         waypointTimeoutCount++;
                         lastWaypointTimeout = lastMovementResult;
@@ -208,6 +224,8 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
     }
     @Override
     public void onInit() {
+        runLog = new RunTelemetryLogger();
+        telemetry = runLog.attach(telemetry, getClass().getSimpleName());
         autoRunning = false;
         parkingStarted = false;
         deadlinePark = null;
@@ -230,6 +248,8 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
 
     @Override
     public void onUpdate() {
+        runLog.updateToggle(gamepad1.back);
+        runLog.gamepads(gamepad1, gamepad2);
         // REQUIRED: Pedro 3 follower must be updated every OpMode loop.
         follower.update();
         enforceAutoDeadline();
@@ -248,11 +268,14 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
         telemetry.addData("Last movement result", lastMovementResult);
         telemetry.addData("Waypoint timeouts", waypointTimeoutCount);
         telemetry.addData("Last waypoint timeout", lastWaypointTimeout);
+        runLog.sample(hardwareMap, telemetry);
         telemetry.update();
     }
 
     @Override
     public void onStartButtonPressed() {
+        runLog.beginRun(gamepad1.back);
+        runLog.event("lifecycle", "START");
         autoStartedAt = System.nanoTime();
         autoRunning = true;
         autoStatus = "Scoring sequence";
@@ -269,5 +292,7 @@ public class RED_AUTO_Garden_NoFlwr extends NextFTCOpMode {
         if (follower != null) {
             follower.stop();
         }
+    
+        runLog.close();
     }
 }

@@ -7,6 +7,7 @@
  * ============================================================================ */
 package org.firstinspires.ftc.teamcode.AutoAppl;
 
+import org.firstinspires.ftc.teamcode.Logging.RunTelemetryLogger;
 import static com.pedropathing.api.Paths.line;
 import static org.firstinspires.ftc.teamcode.config.AutoConfig.*;
 
@@ -15,10 +16,12 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import org.firstinspires.ftc.teamcode.subsystems.AutoShootSequence;
+import org.firstinspires.ftc.teamcode.subsystems.WaypointSettleGuard;
 import org.firstinspires.ftc.teamcode.subsystems.HiveUpTagIDLogic;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeArmSingleServo;
 import org.firstinspires.ftc.teamcode.subsystems.pedroPathing.Constants;
 import dev.nextftc.core.commands.Command;
+import dev.nextftc.core.commands.conditionals.IfElseCommand;
 import dev.nextftc.core.commands.delays.Delay;
 import dev.nextftc.core.commands.groups.SequentialGroup;
 import dev.nextftc.core.commands.utility.InstantCommand;
@@ -30,6 +33,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 /** Flower routine in the same start-relative coordinate frame as RED_AutoGarden. */
 @Autonomous(name = "RED_AutoFlower")
 public class RED_AutoFlower extends NextFTCOpMode {
+    private RunTelemetryLogger runLog = new RunTelemetryLogger();
     // Straight is -X as in RED_AutoGarden; opposite strafe is +Y. All headings remain zero.
     private Pose startPose;
     private Pose flwrPos1;
@@ -75,11 +79,16 @@ public class RED_AutoFlower extends NextFTCOpMode {
     private Command buildMoveCommand(Pose from, Pose to, String label) {
         final long[] movementStartedAt = {0};
         final boolean[] timedOut = {false};
+        final boolean[] nearTargetDone = {false};
+        final WaypointSettleGuard settle = new WaypointSettleGuard();
+        final boolean useNearTargetFallback = to == flwrPos1 || to == flwrPos2 || to == strafeEnd;
         final String movementLabel = label;
         return new LambdaCommand(movementLabel)
                 .setStart(() -> {
                     stage = movementLabel;
                     timedOut[0] = false;
+                    nearTargetDone[0] = false;
+                    settle.reset();
                     // Previous leg may have timed out: use measured pose instead of its target.
                     Pose actualStart = follower.pose();
                     follower.follow(line(actualStart, to).linear(actualStart, to));
@@ -87,6 +96,14 @@ public class RED_AutoFlower extends NextFTCOpMode {
                 })
                 .setIsDone(() -> {
                     if (!follower.isBusy()) return true;
+                    // Keep correcting the exact target; only release after sustained near-target busy time.
+                    if (useNearTargetFallback) {
+                        Pose measured = follower.pose();
+                        nearTargetDone[0] = settle.update(System.nanoTime()/1e9,
+                                Math.hypot(measured.x() - to.x(), measured.y() - to.y()),
+                                measured.heading() - to.heading());
+                        if (nearTargetDone[0]) return true;
+                    }
                     timedOut[0] = (System.nanoTime() - movementStartedAt[0]) / 1e9
                             >= WAYPOINT_TIMEOUT_SECONDS;
                     return timedOut[0];
@@ -95,7 +112,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
                     follower.stop();
                     // Timeout advances the sequence, including any following mechanism action.
                     lastMovementResult = movementLabel + (interrupted ? ": interrupted"
-                            : timedOut[0] ? ": TIMEOUT - advancing" : ": follower completed");
+                            : nearTargetDone[0] ? ": NEAR TARGET for 500 ms - advancing" : timedOut[0] ? ": TIMEOUT - advancing" : ": follower completed");
                     if (timedOut[0] && !interrupted) {
                         waypointTimeoutCount++;
                         lastWaypointTimeout = lastMovementResult;
@@ -192,13 +209,15 @@ public class RED_AutoFlower extends NextFTCOpMode {
         }
     }
 
-    private Command autonomousRoutine() {
+    private boolean allowFlowerTrip() {
+        double remaining = AUTO_LIMIT_SECONDS - (System.nanoTime()-autoStartedAt)/1e9;
+        boolean allowed = remaining >= FLOWER_TRIP_MIN_REMAINING_SECONDS;
+        runLog.event("Flower trip decision", "remaining="+remaining+"; required >= "
+                +FLOWER_TRIP_MIN_REMAINING_SECONDS+"; "+(allowed?"COLLECT":"PARK"));
+        return allowed;
+    }
+    private Command buildFlowerCollectionTrip() {
         return new SequentialGroup(
-                buildMoveCommand(startPose, flwrPos1, "Move straight 1 inch to FlwrPos1"),
-                buildHiveWaitCommand(),
-                stage("FlwrPos1: shoot at " + (SHOOTER_SPEED_FRACTION * 100) + "% speed"),
-                // Intake + shooter start together; feeder at 1 s, then 4 s feeding.
-                shooting.command(SHOOTER_SPEED_FRACTION, FLOWER_FIRST_SHOOT_SECONDS),
                 buildMoveCommand(flwrPos1, straightEnd, "Move straight 9 more inches"),
                 buildMoveCommand(straightEnd, strafeEnd, "Strafe 10 inches opposite RED_AutoGarden"),
                 stage("Arm down to " + IntakeArmSingleServo.DOWN_DEGREES + " degrees; wait " + FLOWER_ARM_PAUSE_SECONDS + " seconds"),
@@ -212,7 +231,18 @@ public class RED_AutoFlower extends NextFTCOpMode {
                 new Delay(FLOWER_SECOND_POSITION_PAUSE_SECONDS),
                 stage("FlwrPos2: shoot at " + (SHOOTER_SPEED_FRACTION * 100) + "% speed"),
                 // Same 60% velocity target as TeleOp; 1 s startup plus 5 s feeding.
-                shooting.command(SHOOTER_SPEED_FRACTION, FLOWER_SECOND_SHOOT_SECONDS),
+                shooting.command(SHOOTER_SPEED_FRACTION, FLOWER_SECOND_SHOOT_SECONDS)
+        );
+    }
+    private Command autonomousRoutine() {
+        return new SequentialGroup(
+                buildMoveCommand(startPose, flwrPos1, "Move straight 1 inch to FlwrPos1"),
+                buildHiveWaitCommand(),
+                stage("FlwrPos1: shoot at " + (SHOOTER_SPEED_FRACTION * 100) + "% speed"),
+                // Intake + shooter start together; feeder at 1 s, then 4 s feeding.
+                shooting.command(SHOOTER_SPEED_FRACTION, FLOWER_FIRST_SHOOT_SECONDS),
+                new IfElseCommand(() -> allowFlowerTrip(), buildFlowerCollectionTrip(),
+                        stage("Insufficient time: skip collection and park")),
                 // Vision is no longer needed: stop polling before driving to parking.
                 new InstantCommand(this::prepareParking),
                 buildMoveCommand(flwrPos2, exitStraight, "Move straight 6 inches after shooting"),
@@ -222,6 +252,8 @@ public class RED_AutoFlower extends NextFTCOpMode {
     }
 
     @Override public void onInit() {
+        runLog = new RunTelemetryLogger();
+        telemetry = runLog.attach(telemetry, getClass().getSimpleName());
         autoRunning = false;
         parkingStarted = false;
         deadlinePark = null;
@@ -237,12 +269,16 @@ public class RED_AutoFlower extends NextFTCOpMode {
     }
 
     @Override public void onStartButtonPressed() {
+        runLog.beginRun(gamepad1.back);
+        runLog.event("lifecycle", "START");
         autoStartedAt = System.nanoTime();
         autoRunning = true;
         routine.schedule();
     }
 
     @Override public void onUpdate() {
+        runLog.updateToggle(gamepad1.back);
+        runLog.gamepads(gamepad1, gamepad2);
         follower.update();
         enforceAutoDeadline();
         telemetry.addData("Auto seconds remaining", "%.1f", autoRunning
@@ -260,6 +296,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
         telemetry.addData("Last movement result", lastMovementResult);
         telemetry.addData("Waypoint timeouts", waypointTimeoutCount);
         telemetry.addData("Last waypoint timeout", lastWaypointTimeout);
+        runLog.sample(hardwareMap, telemetry);
         telemetry.update();
     }
 
@@ -270,5 +307,7 @@ public class RED_AutoFlower extends NextFTCOpMode {
         if (hiveTags != null) hiveTags.stop();
         shooting.stop();
         if (follower != null) follower.stop();
+    
+        runLog.close();
     }
 }

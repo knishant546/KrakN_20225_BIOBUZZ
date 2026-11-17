@@ -16,8 +16,14 @@ public final class TeleopConfig {
     public static final int INITIAL_INTAKE_POWER_PERCENT = 90; // INIT and D-pad RIGHT.
     public static final int MAX_INTAKE_POWER_PERCENT = 100;
     public static final int INTAKE_STEP_PERCENT = 10;
-    public static final double DRIVE_MAX_POWER = 0.25;
-    public static final double DRIVE_NORMALIZATION_FLOOR = 0.25;
+    public static final double DRIVE_MAX_POWER = 0.50;
+    public static final double DRIVE_NORMALIZATION_FLOOR = 1.0;
+    // BioBuzzTeleop: shape inputs before mixing; ramp final wheel commands.
+    public static final double DRIVE_DEADBAND = 0.05;
+    public static final double DRIVE_RESPONSE_EXPONENT = 2.0;
+    public static final boolean DRIVE_SLEW_ENABLED = true; // Set false for comparison test.
+    public static final double DRIVE_RAMP_SECONDS = 0.200; // Zero to DRIVE_MAX_POWER.
+    public static final double TURN_MAX_POWER = 0.10;
     public static final double TURN_DEADBAND = 0.05;
     public static final double MAX_TURN_INPUT = 0.20;
     public static final double ARM_STEP_DEGREES = 5.0;

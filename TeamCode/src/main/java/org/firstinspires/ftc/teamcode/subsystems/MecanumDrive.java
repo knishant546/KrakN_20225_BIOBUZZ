@@ -30,6 +30,13 @@ public class MecanumDrive {
     GoBildaPinpointDriver pinpoint;
 
     private boolean isPinpoint;
+    private boolean slewEnabled;
+    private final DriveSlewLimiter slew = new DriveSlewLimiter();
+    private double[] requestedPowers = new double[4], outputPowers = new double[4];
+    /** Opt-in so other test OpModes retain their existing immediate drive behavior. */
+    public void setSlewEnabled(boolean enabled) { slewEnabled = enabled; slew.reset(); }
+    public double[] getRequestedPowers() { return requestedPowers.clone(); }
+    public double[] getOutputPowers() { return outputPowers.clone(); }
 
     public void init(HardwareMap hwMap, boolean isGobildaPinpointIMU) {
         frontLeftMotor = hwMap.get(DcMotor.class, "FLDC");
@@ -49,10 +56,12 @@ public class MecanumDrive {
         frontRightMotor.setDirection(DcMotor.Direction.REVERSE);
 
 */
-        frontLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backLeftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        frontRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        backRightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        // Drive motor encoder cables are not connected: use open-loop power.
+        // Pinpoint odometry is independent; shooter velocity control is unchanged.
+        frontLeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backLeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        frontRightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backRightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
 
         if (isGobildaPinpointIMU) {
@@ -103,10 +112,16 @@ public class MecanumDrive {
         maxPower = Math.max(maxPower, Math.abs(frontRightPower));
         maxPower = Math.max(maxPower, Math.abs(backRightPower));
 
-        frontLeftMotor.setPower(maxSpeed * (frontLeftPower / maxPower));
-        backLeftMotor.setPower(maxSpeed * (backLeftPower / maxPower));
-        frontRightMotor.setPower(maxSpeed * (frontRightPower / maxPower));
-        backRightMotor.setPower(maxSpeed * (backRightPower / maxPower));
+        requestedPowers = new double[]{maxSpeed*frontLeftPower/maxPower,
+                maxSpeed*backLeftPower/maxPower, maxSpeed*frontRightPower/maxPower,
+                maxSpeed*backRightPower/maxPower};
+        // Apply after mixing/normalization; drive(0,0,0) always stops immediately.
+        outputPowers = slew.update(requestedPowers, System.nanoTime()/1e9,
+                maxSpeed, TeleopConfig.DRIVE_RAMP_SECONDS, slewEnabled);
+        frontLeftMotor.setPower(outputPowers[0]);
+        backLeftMotor.setPower(outputPowers[1]);
+        frontRightMotor.setPower(outputPowers[2]);
+        backRightMotor.setPower(outputPowers[3]);
     }
 
     public void driveFieldRelative(double forward, double strafe, double rotate) {

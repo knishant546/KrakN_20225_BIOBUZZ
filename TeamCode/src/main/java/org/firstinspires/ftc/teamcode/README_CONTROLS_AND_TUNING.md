@@ -1,3 +1,19 @@
+# Drive update — November 17, 2026 (BioBuzz_Oct_31st)
+
+This drive section supersedes older drive values below. Other controls remain unchanged.
+
+All four MecanumDrive motors now use RUN_WITHOUT_ENCODER because their encoder cables are not connected. The 50% cap and ramp apply to open-loop power commands. Pinpoint remains independent, and shooter encoder velocity control is unchanged. This affects every OpMode using MecanumDrive; Pedro Auto configuration is not changed.
+
+- TeleopConfig.DRIVE_MAX_POWER = 0.50: maximum wheel command, not guaranteed travel speed.
+- DRIVE_NORMALIZATION_FLOOR = 1.0: normalize only when mixed commands exceed 1.
+- DRIVE_DEADBAND = 0.05 and DRIVE_RESPONSE_EXPONENT = 2: rescale outside deadband, then square forward/strafe inputs. Turning remains squared, with TURN_MAX_POWER = 0.10 for turning alone.
+- DRIVE_SLEW_ENABLED = true and DRIVE_RAMP_SECONDS = 0.200: BioBuzzTeleop enables a time-based limiter after wheel mixing. Rest to full command takes approximately 200 ms; full forward to reverse takes approximately 400 ms. All sticks centered or DS STOP commands zero immediately. This describes commands, not instantaneous physical stopping.
+- A single interpolation fraction limits wheel changes together. Long-loop elapsed time is capped at 50 ms to avoid a large catch-up jump. Other MecanumDrive callers do not opt into ramping; they do share the drive cap/normalization constants. Pedro Auto and shooter logic are unchanged.
+- Telemetry shows requested/ramped FL/RL/FR/RR wheel commands, ramp setting, battery voltage and minimum sampled voltage since INIT. Fast electrical transients can be missed by software sampling.
+
+For comparison, set DRIVE_SLEW_ENABLED=false, rebuild and repeat identical maneuvers at the same 50% cap. Look for smoother starts/reversals, useful driver control and improved minimum voltage. A successful test does not rule out battery, connection or ESD faults.
+
+---
 # BioBuzz controls and tuning
 
 Verified against executable code on November 1, 2026. Covers BioBuzzTeleop and RED/BLUE_AutoGarden / RED/BLUE_AutoFlower. Paths below are relative to this README's teamcode directory. Older routines and mechanisms are under AutoAppl/test and subsystems/test; they are not the settings for these main programs. Values are a snapshot: update this document when tuning code.
@@ -67,7 +83,7 @@ Central tuning files are `config/AutoConfig.java` (all four main Auto programs) 
 |---|---|---|
 | TeleOp wheel command cap | config/TeleopConfig.java — DRIVE_MAX_POWER | 0.25, bounding each wheel's setPower command to +/-0.25; not measured travel speed. |
 | TeleOp normalization | config/TeleopConfig.java — DRIVE_NORMALIZATION_FLOOR | 0.25. This is the normalization floor, not a second independent speed cap; joystick response depends on both values. |
-| TeleOp wheel direction | MecanumDrive.init(): four setDirection calls | FLDC/RLDC FORWARD; FRDC/RRDC REVERSE. Motors use RUN_USING_ENCODER. |
+| TeleOp wheel direction | MecanumDrive.init(): four setDirection calls | FLDC/RLDC FORWARD; FRDC/RRDC REVERSE. Motors use RUN_WITHOUT_ENCODER (no drive encoder cables). |
 | TeleOp turning | config/TeleopConfig.java — TURN_DEADBAND, MAX_TURN_INPUT (response calculation remains in BioBuzzTeleop.loop()) | 0.05 deadband, 0.20 maximum input, squared response. Wheel mixing/cap still applies. |
 | Auto drive limit | config/AutoConfig.java — MAX_PATH_SPEED (read by Pedro Constants) | 0.80 Pedro path-speed setting; not a fixed wheel power or inches/second. Auto does not use MecanumDrive.drive(). |
 | Auto wheel direction/names | Constants.java — drivetrainConfig: frontLeft/backLeft/frontRight/backRight Name and Direction | FLDC/RLDC FORWARD; FRDC/RRDC REVERSE. Separate settings from TeleOp; keep both configurations consistent with wiring. |
@@ -156,3 +172,25 @@ All in `AutoConfig`: `GARDEN_FIRST_SHOOT_SECONDS` (6), `GARDEN_SECOND_SHOOT_SECO
 **Waypoint timeout (all ten main AutoAppl modes):** AutoConfig.WAYPOINT_TIMEOUT_SECONDS = 3.0 starts separately for each buildMoveCommand. On timeout the follower stops and the sequence advances, including a following collection or shooting action even if the target was not reached. Each next waypoint path starts at live odometry. Telemetry preserves the last timeout and a timeout count. Shooting, intake waits, hive waits, and arm delays are unchanged. Flower's existing timed backward test retains its own duration. No new position tolerance, rotation/freeze watchdog, or sensor-health checks were added. Existing overall deadlines still apply. Timeout is not proof of arrival; validate routes before relying on automatic continuation.
 
 **Gamepad 2 shooter triggers:** LT above 50% starts the existing shooter-then-feeder sequence once per press; release does not stop shooting. RT above 50% stops feeder then shooter using the existing stop delay and wins if both triggers are pressed. Trigger depth does not set speed; A/B remain speed controls. Controller START/BACK no longer start/stop shooting. Triggers held during INIT/Driver Station START do not initiate shooting until released and pressed again.
+
+## Near-target movement fallback — November 17, 2026
+
+RED/BLUE AutoGarden and Garden_NoFlwr use a near-target fallback for shooting, Garden reach/slide-in/slide-out, and (full Garden only) Flower reached/slide-in/backout destinations. AutoFlower uses it for shooting waypoints and the strafe-end collection approach. Parking/transit waypoints are not opted in. AutoFlower's one-second timed backward workaround is unchanged.
+
+Pedro continues aiming for the exact target. While still busy, distance <=0.5 inches AND wrapped heading error <=3 degrees must hold continuously for 500 ms before following is stopped and the next command starts. Leaving either tolerance resets the timer. Normal follower completion advances immediately; the existing 3-second maximum still advances even outside these tolerances. The 24-second parking deadline and 30-second stop remain unchanged. Collection/shooting delays use their own clocks.
+
+Tune WAYPOINT_NEAR_POSITION_INCHES, WAYPOINT_NEAR_HEADING_DEGREES and WAYPOINT_NEAR_HOLD_SECONDS in config/AutoConfig.java. The shared timing helper is subsystems/WaypointSettleGuard.java. Last movement telemetry distinguishes NEAR TARGET completion from TIMEOUT and normal follower completion. This detects continued near-target correction, not physical stall or guaranteed precise arrival.
+## Per-run CSV logging — November 17, 2026
+
+BioBuzzTeleop, all ten top-level AutoAppl modes (including parking-only), and DisplayCoorindate create one CSV file at INIT. START/STOP markers delimit execution; cancelled INIT sessions count as runs. Older test OpModes are not automatically instrumented. Files are in `/sdcard/FIRST/logs/runs/`, named `BioBuzzRun-<OpMode>-<timestamp>-<unique>.csv`. The CSV contains Unix and elapsed timestamps, displayed eager telemetry values (10 Hz), state events, gamepad controls and voltage. It is not Android system logcat or video.
+
+GP1 BACK toggles capture, ON by default. Driver Station telemetry continues when paused. Telemetry reports file path, status, dropped batches and sample cost. Writers run in a bounded background queue. Flushes occur during batch processing; abrupt power loss can still lose queued/tail data, so a missing STOP marker can indicate interruption but does not prove a brownout.
+
+`config/LoggingConfig.java` defines MAX_RUNS=50 (including active files), BUDGET_BYTES=100 MiB, CLEANUP_FRACTION=0.80 and MIN_FREE_BYTES=100 MiB. Oldest completed owned CSVs are removed while the count exceeds 50 or projected total reaches 80 MiB. This is a dedicated logging budget, not 80% of the entire REV storage. Cleanup runs on the writer thread before batches; there can briefly be one extra newly created file before initial cleanup. Active files and unrelated files are protected. If active files alone fill the threshold, disk free space is too low, or an I/O error occurs, logging stops/reports an error without stopping robot control. Legacy files without the BioBuzzRun prefix are not deleted or included in this budget.
+
+Download using an established ADB connection: `adb pull /sdcard/FIRST/logs/runs ./robot-logs`. Open CSVs offline in a spreadsheet or analysis tool. Changing the Hub clock can affect oldest-by-modification-time cleanup order; elapsed timing inside each file remains useful.
+## Collection trip time budget — November 17, 2026
+
+Both RED and BLUE full AutoGarden evaluate remaining time immediately after the confirmed second shot. The Flower collection/third shot trip starts only if more than GARDEN_FLOWER_MIN_REMAINING_SECONDS=14 seconds remain. AutoFlower evaluates immediately after its first shot, collecting/shooting again only if at least FLOWER_TRIP_MIN_REMAINING_SECONDS=15 seconds remain. Otherwise the existing parking sequence runs. Garden_NoFlwr and parking-only programs are unchanged.
+
+These checks use the 30-second clock. The 24-second parking deadline can still interrupt an admitted trip; this is an entry check, not a guarantee the trip will finish. CSV logs record remaining seconds, threshold and COLLECT/PARK decision. Existing movement timeouts, near-target tolerance, timed backward workaround and shooting/collection durations are unchanged. Flower parking still uses its exit-straight waypoint then final park, building each leg from measured position even when collection was skipped.
